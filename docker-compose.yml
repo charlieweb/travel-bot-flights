@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Backend - FastAPI with Uvicorn
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: travel-bot-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Docker-internal network URLs (not in .env file)
+      - CRAWL4AI_BASE_URL=http://crawl4ai:11235
+    networks:
+      - travel-bot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # Crawl4AI - Self-hosted web crawler
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: travel-bot-crawl4ai
+    ports:
+      - "11235:11235"
+    environment:
+      - CRAWL4AI_API_TOKEN=${CRAWL4AI_API_TOKEN:-}
+    shm_size: "1g"
+    networks:
+      - travel-bot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # Frontend - Nuxt.js
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: travel-bot-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env
+    environment:
+      # Docker-internal network URLs (not in .env file)
+      - NUXT_INTERNAL_API_BASE=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+      crawl4ai:
+        condition: service_healthy
+    networks:
+      - travel-bot-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+networks:
+  travel-bot-network:
+    driver: bridge
