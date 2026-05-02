@@ -1,14 +1,14 @@
 # Travel Bot
 
 ## Overview
-Travel booking assistant that collects user preferences (origin, destination, dates) and returns flight options via a provider-agnostic scraping service supporting Firecrawl (cloud) and Crawl4AI (self-hosted).
+Travel booking assistant that collects user preferences (origin, destination, dates) and returns flight options via a provider-agnostic scraping service supporting Spider (cloud) and Playwright (local browser automation).
 
 ## Tech Stack
 - **Frontend**: Nuxt 4 (Vue 3 + TypeScript + Pinia) + Tailwind CSS 4 + DaisyUI 5
 - **Backend**: FastAPI (Python 3.13+)
-- **Scraping Providers**: 
-  - **Firecrawl**: Cloud API service (paid)
-  - **Crawl4AI**: Self-hosted open-source crawler (free)
+- **Scraping Providers**:
+  - **Spider**: Cloud API (excellent JS rendering, free credits)
+  - **Playwright**: Local browser automation
 - **Architecture**: Provider-agnostic scraping abstraction layer
 
 ## Architecture
@@ -43,8 +43,8 @@ travel-bot/
 │   │   │   └── providers/      # Provider implementations
 │   │   │       ├── __init__.py # Factory (get_provider)
 │   │   │       ├── base.py     # Abstract ScrapingProvider
-│   │   │       ├── firecrawl.py
-│   │   │       └── crawl4ai.py
+│   │   │       ├── spider.py   # Spider Cloud provider
+│   │   │       └── playwright_provider.py  # Playwright provider
 │   │   ├── airlabs_service.py  # AirLabs integration
 │   │   └── mock_airports.py    # Fallback mock data
 │   ├── pyproject.toml
@@ -90,19 +90,16 @@ pnpm run dev # http://localhost:3000
 
 | Service | Image | Port | Purpose | Environment |
 |---------|-------|------|---------|-------------|
-| `backend` | FastAPI + Uvicorn | `8000:8000` | Main API | `SCRAPING_PROVIDER`, `FIRECRAWL_API_KEY`, `AIRLABS_API_KEY` |
-| `crawl4ai` | unclecode/crawl4ai:latest | `11235:11235` | Self-hosted crawler | `CRAWL4AI_API_TOKEN` (optional) |
+| `backend` | FastAPI + Uvicorn | `8000:8000` | Main API | `SCRAPING_PROVIDER`, `SPIDER_API_KEY`, `AIRLABS_API_KEY` |
 | `frontend` | Nuxt SSR | `3000:3000` | Web UI | `NUXT_PUBLIC_API_BASE`, `NUXT_INTERNAL_API_BASE`, `PORT` |
 
 ### Network Configuration
 
 - **Network**: `travel-bot-network` (bridge driver)
 - **Service Dependencies**:
-  - Frontend waits for both backend and crawl4ai to be healthy
-  - Backend can use either Firecrawl (cloud) or Crawl4AI (self-hosted)
+  - Frontend waits for backend to be healthy
 - **Health Checks**:
   - Backend: `curl -f http://localhost:8000/health`
-  - Crawl4AI: `curl -f http://localhost:11235/health`
   - Frontend: HTTP GET on `http://localhost:3000`
 
 ### Environment Variable Split
@@ -125,9 +122,8 @@ This split is required because:
 
 | File | Purpose | Variables |
 |------|---------|-----------|
-| `backend/.env` | Backend service config | `SCRAPING_PROVIDER`, `FIRECRAWL_API_KEY`, `AIRLABS_API_KEY`, `CRAWL4AI_BASE_URL` |
+| `backend/.env` | Backend service config | `SCRAPING_PROVIDER`, `SPIDER_API_KEY`, `AIRLABS_API_KEY` |
 | `frontend/.env` | Frontend service config | `NUXT_PUBLIC_API_BASE`, `NUXT_INTERNAL_API_BASE` |
-| `.env` (root) | Optional shared config | `CRAWL4AI_API_TOKEN` (if using Crawl4AI cloud) |
 
 ### Frontend
 - Use `pnpm` for package management
@@ -146,8 +142,8 @@ This split is required because:
   - `ScrapingService` facade: business logic for flight search
   - `ScrapingProvider` base class: unified interface for all providers
   - **Supported Providers**:
-    - `FirecrawlProvider`: Cloud API (search + scrape)
-    - `Crawl4AIProvider`: Self-hosted (scrape only, direct URLs)
+    - `SpiderCloudProvider`: Cloud API (excellent JS rendering, free credits)
+    - `PlaywrightProvider`: Local browser automation
   - Provider selection via `SCRAPING_PROVIDER` env var
   - Falls back to mock data if provider fails or no API key configured
 - **AirLabs Service**: Airport data lookup with mock fallback
@@ -155,31 +151,30 @@ This split is required because:
 - Environment: `backend/.env` for all service configuration
 
 ### Docker Integration
-- **Backend `.env`**: Service-specific config (`SCRAPING_PROVIDER`, `FIRECRAWL_API_KEY`, `AIRLABS_API_KEY`, `CRAWL4AI_BASE_URL`)
+- **Backend `.env`**: Service-specific config (`SCRAPING_PROVIDER`, `SPIDER_API_KEY`, `AIRLABS_API_KEY`)
 - **Frontend `.env`**: Nuxt-specific config (`NUXT_PUBLIC_API_BASE`, `NUXT_INTERNAL_API_BASE`)
-- **Root `.env`**: Optional shared config (e.g., `CRAWL4AI_API_TOKEN` for cloud)
 - **docker-compose.yml**: Uses `env_file` directive to load service-specific `.env` files
-- **Service Dependencies**: Frontend waits for both backend and crawl4ai health checks
-- **Port Mapping**: Frontend `3000:3000`, Backend `8000:8000`, Crawl4AI `11235:11235`
+- **Port Mapping**: Frontend `3000:3000`, Backend `8000:8000`
 - **Internal Networking**: Services communicate via Docker bridge network `travel-bot-network`
 
 ## Provider Configuration
 
-### Firecrawl (Cloud)
+### Spider Cloud (Cloud - Recommended)
 ```bash
 # backend/.env
-SCRAPING_PROVIDER=firecrawl
-FIRECRAWL_API_KEY=your_firecrawl_key_here
-FIRECRAWL_BASE_URL=https://api.firecrawl.dev/v2
+SCRAPING_PROVIDER=spider
+SPIDER_API_KEY=your_spider_api_key_here
+SPIDER_BASE_URL=https://api.spider.cloud
 ```
+Get your API key at: https://spider.cloud/dashboard (free credits on signup)
 
-### Crawl4AI (Self-Hosted)
+### Playwright (Local Browser)
 ```bash
 # backend/.env
-SCRAPING_PROVIDER=crawl4ai
-CRAWL4AI_BASE_URL=http://crawl4ai:11235  # Docker internal
-# No API key needed for local self-hosted instance
+SCRAPING_PROVIDER=playwright
+PLAYWRIGHT_CDP_URL=http://localhost:9222
 ```
+Run: `npx playwright install && npx playwright start`
 
 ### Switching Providers
 Simply change `SCRAPING_PROVIDER` in `backend/.env` and restart:

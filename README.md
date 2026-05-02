@@ -24,8 +24,8 @@ travel-bot/
 │   │   └── scraping/           # Provider-agnostic scraping service
 │   │       ├── service.py      # Main scraping facade
 │   │       └── providers/      # Provider implementations
-│   │           ├── firecrawl.py
-│   │           └── crawl4ai.py
+│   │           ├── spider.py
+│   │           └── playwright_provider.py
 │   ├── schemas/                # Pydantic models
 │   └── .env                    # Backend environment variables
 ├── frontend/                   # Nuxt 4 + Vue 3 + TypeScript
@@ -45,8 +45,8 @@ travel-bot/
 | **FastAPI** | High-performance Python web framework |
 | **Uvicorn** | ASGI server for async handling |
 | **Scraping Service** | Provider-agnostic abstraction layer |
-| **Firecrawl** | Cloud web scraping service |
-| **Crawl4AI** | Self-hosted open-source web crawler |
+| **Spider** | Cloud web scraping service |
+| **Playwright** | Local browser automation |
 | **AirLabs API** | Airport data and flight information |
 | **Pydantic** | Data validation and serialization |
 
@@ -75,23 +75,20 @@ The application supports multiple scraping providers via a provider-agnostic abs
 
 | Provider | Type | Cost | Best For |
 |----------|------|------|----------|
-| **Firecrawl** | Cloud API | Paid (credits) | Quick start, managed service, search + scrape |
-| **Crawl4AI** | Self-hosted | Free | Cost-effective, privacy, direct URL scraping |
+| **Spider** | Cloud API | Free credits | Quick start, excellent JS rendering |
+| **Playwright** | Local | Free | Full browser control, privacy |
 
-#### Firecrawl
-Cloud-based web scraping service with search capabilities:
-- **Search**: Find relevant flight pages
-- **Scrape**: Extract structured data from URLs
-- Supports 7 airlines and 4 aggregators
-- Get API key at: https://firecrawl.dev
+#### Spider Cloud
+Cloud-based web scraping service with excellent JavaScript rendering:
+- Direct URL scraping
+- Free credits on signup (no credit card required)
+- Get API key at: https://spider.cloud/dashboard
 
-#### Crawl4AI
-Self-hosted open-source web crawler:
-- Runs in Docker container
-- Direct URL scraping (no search endpoint)
-- Free and unlimited (self-hosted)
-- No API key required for local instance
-- GitHub: https://github.com/unclecode/crawl4ai
+#### Playwright
+Local browser automation:
+- Full browser control
+- Run via `npx playwright install && npx playwright start`
+- No API key required
 
 ### AirLabs
 AirLabs API provides:
@@ -116,8 +113,8 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 
 # Edit backend/.env with your configuration
-# SCRAPING_PROVIDER=firecrawl  # or 'crawl4ai'
-# FIRECRAWL_API_KEY=your_firecrawl_key_here
+# SCRAPING_PROVIDER=spider  # or 'playwright'
+# SPIDER_API_KEY=your_spider_api_key_here
 # AIRLABS_API_KEY=your_airlabs_key_here
 
 # The frontend/.env is pre-configured for Docker with:
@@ -148,7 +145,6 @@ docker-compose down
 | Frontend | http://localhost:3000 | Nuxt web application |
 | Backend API | http://localhost:8000 | FastAPI endpoints |
 | API Docs | http://localhost:8000/docs | Swagger/OpenAPI documentation |
-| Crawl4AI | http://localhost:11235 | Crawl4AI dashboard (if enabled) |
 
 ### 4. Development Mode
 
@@ -175,22 +171,20 @@ The application uses a multi-container Docker setup with internal networking:
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Docker Network                               │
-│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────┐ │
-│  │   Frontend (Nuxt)   │  │  Backend (FastAPI)  │  │ Crawl4AI    │ │
-│  │   Port: 3000        │  │  Port: 8000         │  │ Port: 11235 │ │
-│  │   Service: frontend │──│  Service: backend   │  │ Service:    │ │
-│  └─────────────────────┘  └─────────────────────┘  │ crawl4ai    │ │
-│           │                       │                └─────────────┘ │
-│           │                       │                       │        │
-│           │                       │                       │        │
-│           └───────────────────────┴───────────────────────┘        │
-│                           │                                        │
-│                           ▼                                        │
+│  ┌─────────────────────┐  ┌─────────────────────┐                  │
+│  │   Frontend (Nuxt)   │  │  Backend (FastAPI)  │                  │
+│  │   Port: 3000        │  │  Port: 8000          │                  │
+│  │   Service: frontend │──│  Service: backend    │                  │
+│  └─────────────────────┘  └─────────────────────┘                  │
+│           │                       │                                  │
+│           │                       │                                  │
+│           └───────────────────────┘                                  │
+│                           │                                          │
+│                           ▼                                          │
 │  ┌─────────────────────────────────────────────────────────────┐  │
 │  │              Browser (Outside Docker)                       │  │
-│  │  Airport API → http://localhost:8000/api/airports         │  │
-│  │  Search API  → http://localhost:8000/api/search_travel    │  │
-│  │  Crawl4AI    → http://localhost:11235 (optional)         │  │
+│  │  Airport API → http://localhost:8000/api/airports          │  │
+│  │  Search API  → http://localhost:8000/api/search_travel      │  │
 │  └─────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -201,7 +195,6 @@ The application uses a multi-container Docker setup with internal networking:
 |-----------|-------------|-----|-------------|
 | **AirportAutocomplete** | Browser (client-side) | `http://localhost:8000` | Host machine's backend container |
 | **Search (SSR)** | Docker (server-side) | `http://backend:8000` | Docker internal DNS to backend |
-| **Crawl4AI Scrape** | Backend (Docker) | `http://crawl4ai:11235` | Docker internal DNS to Crawl4AI |
 
 ### Environment Variable Split
 
@@ -209,26 +202,24 @@ The application uses separate `.env` files for each service:
 
 | File | Purpose | Example Variables |
 |------|---------|-------------------|
-| `backend/.env` | Backend service config | `SCRAPING_PROVIDER`, `FIRECRAWL_API_KEY`, `AIRLABS_API_KEY` |
+| `backend/.env` | Backend service config | `SCRAPING_PROVIDER`, `SPIDER_API_KEY`, `AIRLABS_API_KEY` |
 | `frontend/.env` | Frontend service config | `NUXT_PUBLIC_API_BASE`, `NUXT_INTERNAL_API_BASE` |
-| `.env` (root) | Optional shared config | `CRAWL4AI_API_TOKEN` (if using cloud) |
 
 ### Provider Configuration
 
-#### Using Firecrawl (Cloud)
+#### Using Spider Cloud (Cloud - Recommended)
 ```bash
 # backend/.env
-SCRAPING_PROVIDER=firecrawl
-FIRECRAWL_API_KEY=your_firecrawl_key_here
-FIRECRAWL_BASE_URL=https://api.firecrawl.dev/v2
+SCRAPING_PROVIDER=spider
+SPIDER_API_KEY=your_spider_api_key_here
+SPIDER_BASE_URL=https://api.spider.cloud
 ```
 
-#### Using Crawl4AI (Self-Hosted)
+#### Using Playwright (Local)
 ```bash
 # backend/.env
-SCRAPING_PROVIDER=crawl4ai
-CRAWL4AI_BASE_URL=http://crawl4ai:11235
-# No API key needed for local instance
+SCRAPING_PROVIDER=playwright
+PLAYWRIGHT_CDP_URL=http://localhost:9222
 ```
 
 ## Features
@@ -279,7 +270,7 @@ Live pricing and availability data where supported by data sources.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `FIRECRAWL_API_KEY` | Yes | Firecrawl API key |
+| `SPIDER_API_KEY` | Yes | Spider Cloud API key |
 | `AIRLABS_API_KEY` | No | AirLabs API key (optional) |
 
 ### Frontend `.env` (API Configuration)
