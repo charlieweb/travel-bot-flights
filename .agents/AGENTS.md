@@ -15,7 +15,6 @@ Travel booking assistant that collects user preferences (origin, destination, da
 ```
 travel-bot/
 ├── docker-compose.yml          # Multi-container orchestration
-├── .env                        # Root-level shared config (optional)
 ├── frontend/                   # Nuxt 4 app
 │   ├── .env                    # Nuxt environment variables
 │   ├── .env.example            # Environment template

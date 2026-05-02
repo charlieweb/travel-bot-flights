@@ -34,7 +34,6 @@ travel-bot/
 │   ├── stores/                 # Pinia state management
 │   └── .env                    # Frontend environment variables
 ├── docker-compose.yml          # Multi-container orchestration
-└── .env                        # Root-level shared config (optional)
 ```
 
 ## Technology Stack
@@ -266,7 +265,7 @@ Live pricing and availability data where supported by data sources.
 
 ## Environment Variables
 
-### Root `.env` (API Keys)
+### Backend `.env` (API Keys)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
