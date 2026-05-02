@@ -1,6 +1,6 @@
 # Backend
 
-FastAPI travel bot API with Firecrawl integration.
+FastAPI travel bot API with Spider Cloud and Playwright scraping providers.
 
 ## Setup
 
@@ -51,5 +51,27 @@ curl -X POST http://localhost:8000/api/search_travel \
 
 Set these variables in `.env` file:
 
-- `FIRECRAWL_API_KEY` - Firecrawl API key for travel search
-- `AIRLABS_API_KEY` - AirLabs API key for airport data
+### Scraping Provider
+```bash
+SCRAPING_PROVIDER=spider  # Options: spider, playwright
+```
+
+### Spider Cloud (Cloud - Recommended)
+```bash
+SPIDER_API_KEY=your_spider_api_key_here
+SPIDER_BASE_URL=https://api.spider.cloud
+```
+Get your free API key at: https://spider.cloud/dashboard
+
+### Playwright (Local Browser)
+```bash
+SCRAPING_PROVIDER=playwright
+PLAYWRIGHT_CDP_URL=http://localhost:9222
+```
+Run `npx playwright install && npx playwright start` before using.
+
+### AirLabs (Optional)
+```bash
+AIRLABS_API_KEY=your_airlabs_api_key_here
+```
+Used for airport data lookups. Get your API key at: https://airlabs.co

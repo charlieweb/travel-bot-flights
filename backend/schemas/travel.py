@@ -6,7 +6,7 @@ class SearchRequest(BaseModel):
     origin: str
     destination: str
     depart_date: date
-    return_date: date
+    return_date: date | None = None
 
 
 class TravelOption(BaseModel):
