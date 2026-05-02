@@ -31,7 +31,7 @@
       :style="`position-anchor:--${popoverId}`"
     >
       <calendar-date
-        :value="modelValue"
+        :value="callyDate"
         class="cally"
         @change="handleDateChange"
       >
@@ -63,10 +63,7 @@ import 'cally'
 
 interface Props {
   modelValue: string
-  label?: string
   placeholder?: string
-  min?: string
-  max?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -77,11 +74,17 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const popoverId = computed(() => `date-picker-${Math.random().toString(36).slice(2, 9)}`)
+const popoverId = `date-picker-${Math.random().toString(36).slice(2, 9)}`
+
+const callyDate = computed(() => {
+  if (!props.modelValue) return undefined
+  const date = new Date(props.modelValue + 'T12:00:00')
+  return date
+})
 
 const displayValue = computed(() => {
   if (!props.modelValue) return ''
-  const date = new Date(props.modelValue)
+  const date = new Date(props.modelValue + 'T00:00:00')
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -90,16 +93,45 @@ const displayValue = computed(() => {
 })
 
 function handleDateChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  emit('update:modelValue', target.value)
-  
-  const popover = document.getElementById(popoverId.value) as HTMLElement & { hidePopover?: () => void }
+  const customEvent = event as CustomEvent
+  let value = ''
+
+  if (customEvent.detail) {
+    if (customEvent.detail instanceof Date) {
+      const d = customEvent.detail
+      const year = d.getUTCFullYear()
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0')
+      const day = String(d.getUTCDate()).padStart(2, '0')
+      value = `${year}-${month}-${day}`
+    } else if (typeof customEvent.detail === 'string') {
+      value = customEvent.detail
+    } else if (customEvent.detail.target?.value) {
+      value = customEvent.detail.target.value
+    }
+  }
+
+  if (!value) {
+    const target = event.target as any
+    if (target?.value) {
+      value = target.value
+    } else if (target?.detail) {
+      value = typeof target.detail === 'string' ? target.detail : target.detail?.value || ''
+    }
+  }
+
+  if (value && typeof value === 'string') {
+    if (value.includes('T')) {
+      value = value.split('T')[0]
+    }
+    emit('update:modelValue', value)
+  }
+
+  const popover = document.getElementById(popoverId) as HTMLElement & { hidePopover?: () => void }
   popover?.hidePopover?.()
 }
 </script>
 
 <style>
-/* Cally base styling */
 .cally {
   font-family: inherit;
 }

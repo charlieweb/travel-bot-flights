@@ -30,7 +30,7 @@ export const useTravelStore = defineStore('travel', {
             origin: this.origin,
             destination: this.destination,
             depart_date: this.departDate,
-            return_date: this.returnDate,
+            return_date: this.returnDate || null,
           },
         })
         this.results = response
