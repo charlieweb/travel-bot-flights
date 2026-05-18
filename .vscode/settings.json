@@ -4,5 +4,17 @@
     "./backend"
   ],
   "python.analysis.autoImportCompletions": true,
-  "python.analysis.typeCheckingMode": "basic"
+  "python.analysis.typeCheckingMode": "basic",
+  "cursorpyright.analysis.autoImportCompletions": true,
+  "cursorpyright.analysis.extraPaths": [
+    "./backend"
+  ],
+  "cursorpyright.analysis.typeCheckingMode": "basic",
+  "vue.server.configFilePath": "${workspaceFolder}/frontend/nuxt.config.ts",
+  "typescript.tsdk": "${workspaceFolder}/frontend/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "nuxt.isNuxtApp": true,
+  "nuxt.nuxtAppDir": "frontend",
+  "vetur.enable": false,
+  "vetur.validation.template": false
 }

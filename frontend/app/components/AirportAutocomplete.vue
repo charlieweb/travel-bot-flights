@@ -56,7 +56,6 @@
 </template>
 
 <script setup lang="ts">
-import { shallowRef, computed, watch, onBeforeUnmount } from 'vue'
 import type { Airport } from '~/lib'
 
 interface Props {
@@ -70,7 +69,6 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const config = useRuntimeConfig()
 const inputRef = useTemplateRef<HTMLInputElement>('inputRef')
 
 // State
@@ -81,11 +79,13 @@ const loading = shallowRef(false)
 const highlightedIndex = shallowRef(-1)
 const selectedAirport = shallowRef<Airport | null>(null)
 
-// Debounce timer
+// Debounce timer + in-flight abort
 let fetchTimeout: ReturnType<typeof setTimeout> | null = null
+let fetchAbort: AbortController | null = null
 
 onBeforeUnmount(() => {
   if (fetchTimeout) clearTimeout(fetchTimeout)
+  fetchAbort?.abort()
 })
 
 // Computed: sorted airports
@@ -119,21 +119,35 @@ const filteredAirports = computed(() => {
 // Methods
 const fetchAirports = async () => {
   const query = searchQuery.value
-  if (query.length < 2) return
+  if (query.length < 2) {
+    loading.value = false
+    airports.value = []
+    return
+  }
+
+  fetchAbort?.abort()
+  fetchAbort = new AbortController()
+  const signal = fetchAbort.signal
 
   loading.value = true
   showDropdown.value = true
 
   try {
-    const response = await $fetch<Airport[]>(`${config.public.apiBase}/api/airports`, {
+    const response = await $fetch<Airport[]>('/api/airports', {
       query: { query },
+      signal,
     })
-    airports.value = response
+    if (!signal.aborted) {
+      airports.value = response
+    }
   } catch (error) {
+    if (signal.aborted) return
     console.error('Failed to fetch airports:', error)
     airports.value = []
   } finally {
-    loading.value = false
+    if (!signal.aborted) {
+      loading.value = false
+    }
   }
 }
 
@@ -146,6 +160,7 @@ const handleInput = () => {
   if (searchQuery.value.length >= 2) {
     fetchTimeout = setTimeout(fetchAirports, 300)
   } else {
+    loading.value = false
     airports.value = []
   }
 }
@@ -198,9 +213,15 @@ watch(
     if (newValue === selectedAirport.value?.code) return
 
     selectedAirport.value = null
+    loading.value = false
+
+    if (/^[A-Za-z]{3}$/.test(newValue)) {
+      searchQuery.value = newValue.toUpperCase()
+      return
+    }
 
     try {
-      const response = await $fetch<Airport[]>(`${config.public.apiBase}/api/airports`, {
+      const response = await $fetch<Airport[]>('/api/airports', {
         query: { query: newValue },
       })
 

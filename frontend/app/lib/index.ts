@@ -6,3 +6,5 @@ export type {
   SearchRequest,
   SearchState,
 } from './types'
+
+export { formatUsdPrice } from './format'

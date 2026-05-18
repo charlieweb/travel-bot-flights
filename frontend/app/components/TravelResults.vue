@@ -8,7 +8,7 @@
     <div class="space-y-4">
       <div
         v-for="option in store.results"
-        :key="option.id"
+        :key="`${option.source_type}-${option.id}`"
         class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow"
       >
         <div class="card-body">
@@ -25,12 +25,24 @@
               </span>
             </div>
             <p class="text-sm text-base-content/60 mt-1">
-              {{ option.stops === 0 ? 'Nonstop' : `${option.stops} stop${option.stops > 1 ? 's' : ''}` }}
-              · {{ option.duration }}
+              <span>{{ stopsLabel(option.stops) }}</span>
+              <span v-if="option.duration"> · {{ option.duration }}</span>
+            </p>
+            <p
+              v-if="option.depart_date || option.return_date"
+              class="text-sm text-base-content/70 mt-1"
+            >
+              <span v-if="option.depart_date">Depart {{ formatDate(option.depart_date) }}</span>
+              <span v-if="option.depart_date && option.return_date"> · </span>
+              <span v-if="option.return_date">Return {{ formatDate(option.return_date) }}</span>
+              <span
+                v-if="option.return_date"
+                class="badge badge-outline badge-xs ml-2 align-middle"
+              >Round trip</span>
             </p>
           </div>
           <div class="text-right">
-            <p v-if="option.price > 0.01" class="text-3xl font-bold text-primary">${{ option.price.toFixed(2) }}</p>
+            <p v-if="option.price > 0.01" class="text-3xl font-bold text-primary">{{ formatUsdPrice(option.price) }}</p>
             <p v-else class="text-sm text-base-content/60">Price unavailable</p>
           </div>
         </div>
@@ -80,7 +92,24 @@
 
 <script setup lang="ts">
 import { useTravelStore } from '~/stores/travel'
+import { formatUsdPrice } from '~/lib'
 
 const store = useTravelStore()
 const getBookingUrl = (sourceUrl: string): string => sourceUrl || ''
+
+function stopsLabel(stops: number): string {
+  if (stops === 0) return 'Nonstop'
+  return `${stops} stop${stops > 1 ? 's' : ''}`
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso.includes('T') ? iso : `${iso}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
 </script>

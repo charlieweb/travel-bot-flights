@@ -10,6 +10,7 @@ export default defineEventHandler(async (event) => {
     const response = await $fetch(`${apiBase}/api/search_travel`, {
       method: 'POST',
       body,
+      timeout: 90_000,
     })
     return response
   } catch (error: any) {

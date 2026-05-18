@@ -55,7 +55,7 @@
         <button
           type="submit"
           class="btn btn-primary w-full"
-          :disabled="store.loading || !store.origin || !store.destination"
+          :disabled="store.loading || !store.origin || !store.destination || !store.departDate"
         >
           <span v-if="store.loading" class="loading loading-spinner" />
           {{ store.loading ? 'Searching...' : 'Search Flights' }}
@@ -79,7 +79,7 @@ function swapLocations() {
 }
 
 async function handleSubmit() {
-  if (!store.origin || !store.destination) return
+  if (!store.origin || !store.destination || !store.departDate) return
   await store.search()
 }
 </script>
