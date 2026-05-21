@@ -18,14 +18,15 @@ A production-ready travel search platform that:
 
 ```
 travel-bot/
-├── backend/                    # FastAPI + Python 3.12
+├── backend/                    # FastAPI + Python 3.13
 │   ├── routers/                # API route handlers
+│   ├── concurrency.py          # anyio parallel gather helper
 │   ├── services/               # Business logic
-│   │   └── scraping/           # Provider-agnostic scraping service
-│   │       ├── service.py      # Main scraping facade
-│   │       └── providers/      # Provider implementations
-│   │           ├── spider.py
-│   │           └── playwright_provider.py
+│   │   └── scraping/           # Scraping + flight parsing
+│   │       ├── service.py      # Search orchestration, regex parsers
+│   │       ├── ai_parser.py    # Gemini (google-genai) fallback parser
+│   │       ├── carriers.py     # Known-airline allowlist
+│   │       └── providers/      # Spider + Playwright
 │   ├── schemas/                # Pydantic models
 │   └── .env                    # Backend environment variables
 ├── frontend/                   # Nuxt 4 + Vue 3 + TypeScript
@@ -46,6 +47,8 @@ travel-bot/
 | **Scraping Service** | Provider-agnostic abstraction layer |
 | **Spider** | Cloud web scraping service |
 | **Playwright** | Local browser automation |
+| **Google Gemini** | AI fallback parser for scraped flight pages (`google-genai`) |
+| **anyio** | Structured async concurrency (task groups, timeouts) |
 | **AirLabs API** | Airport data and flight information |
 | **Pydantic** | Data validation and serialization |
 
@@ -95,6 +98,22 @@ AirLabs API provides:
 - IATA code resolution
 - Airport search by city/name/code
 
+### Flight parsing (regex + Gemini)
+
+After a provider returns page content, `ScrapingService` parses fares in two stages:
+
+1. **Regex-first** — Playwright row blocks, Google Flights price cards, aggregator offer snippets, and known-carrier matching (`carriers.py` allowlist).
+2. **Gemini fallback** — If regex finds no fares but the page has price signals, `AIParser` sends a trimmed excerpt to **Google Gemini** and maps the JSON response to `TravelOption` rows.
+
+Set `GOOGLE_API_KEY` in `backend/.env` to enable AI parsing (optional). Without it, search still works using regex only.
+
+```bash
+GOOGLE_API_KEY=your_google_api_key_here
+GEMINI_MODEL=gemini-3.1-flash-lite   # optional
+```
+
+Key files: `backend/services/scraping/service.py`, `ai_parser.py`, `carriers.py`.
+
 ## Quick Start with Docker
 
 ### Prerequisites
@@ -114,6 +133,7 @@ cp frontend/.env.example frontend/.env
 # Edit backend/.env with your configuration
 # SCRAPING_PROVIDER=spider  # or 'playwright'
 # SPIDER_API_KEY=your_spider_api_key_here
+# GOOGLE_API_KEY=your_google_api_key_here   # optional, Gemini parsing
 # AIRLABS_API_KEY=your_airlabs_key_here
 
 # The frontend/.env is pre-configured for Docker with:
@@ -240,7 +260,8 @@ Live pricing and availability data where supported by data sources.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/search-travel` | Search flights |
+| `POST` | `/api/search_travel` | Search flights (all sources, parallel) |
+| `POST` | `/api/search_travel/stream` | SSE stream — results per source as they finish |
 | `GET` | `/api/airports` | Search airports |
 | `GET` | `/health` | Health check |
 
@@ -269,7 +290,10 @@ Live pricing and availability data where supported by data sources.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `SPIDER_API_KEY` | Yes | Spider Cloud API key |
+| `SCRAPING_PROVIDER` | Yes | `spider` or `playwright` |
+| `SPIDER_API_KEY` | If using Spider | Spider Cloud API key |
+| `GOOGLE_API_KEY` | No | Gemini parsing fallback ([get key](https://aistudio.google.com/apikey)) |
+| `GEMINI_MODEL` | No | Model id (default: `gemini-3.1-flash-lite`) |
 | `AIRLABS_API_KEY` | No | AirLabs API key (optional) |
 
 ### Frontend `.env` (API Configuration)
