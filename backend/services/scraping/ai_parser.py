@@ -1,11 +1,14 @@
 import json
 import os
-import asyncio
 import re
-from typing import Optional
 from functools import partial
+from typing import Optional
+
+from anyio.to_thread import run_sync
 
 from schemas.travel import TravelOption
+
+from .carriers import match_airline_name
 
 _AI_CONTENT_SLICE = 8_000
 
@@ -26,8 +29,15 @@ Site: {site_name} | {origin}->{destination} | {depart_date}{return_context}
 
 def _normalize_usd_price(value: object) -> float | None:
     """Return a plausible economy fare in USD (one-way or round-trip), or None if invalid."""
+    if value is None or isinstance(value, bool):
+        return None
     try:
-        price = float(value)
+        if isinstance(value, (int, float)):
+            price = float(value)
+        elif isinstance(value, str):
+            price = float(value.replace(",", "").strip())
+        else:
+            return None
     except (TypeError, ValueError):
         return None
     if price <= 0:
@@ -130,9 +140,7 @@ class AIParser:
             client = self._get_client()
             print(f"[AIParser] Calling {self.model} for {site_name} ({len(page_content)} chars)")
 
-            loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(
-                None,
+            response = await run_sync(
                 partial(
                     client.models.generate_content,
                     model=self.model,
@@ -209,22 +217,8 @@ class AIParser:
             duration = f.get("duration", "2h 30m")
             stops = int(f.get("stops", 0))
 
-            airline = (f.get("airline") or "").strip()
-            lower = airline.lower().rstrip(".")
-            if not airline or lower in (
-                "flight option",
-                "unknown",
-                "google flights",
-                "kayak",
-                "skyscanner",
-                "expedia",
-                "to update prices",
-                "update prices",
-            ):
-                continue
-            if re.match(r"^to\s+[a-z]", airline, re.IGNORECASE):
-                continue
-            if "update" in lower and "price" in lower:
+            airline = match_airline_name(f.get("airline") or "")
+            if not airline:
                 continue
 
             options.append(TravelOption(

@@ -1,10 +1,12 @@
-import asyncio
 import os
 import random
 import re
 import sys
 from typing import TYPE_CHECKING, List, Dict, Any, Optional
 from urllib.parse import urlsplit, urlunsplit
+
+import anyio
+from concurrency import gather
 
 if TYPE_CHECKING:
     from playwright.async_api import Geolocation, ViewportSize
@@ -17,7 +19,7 @@ _NAV_TIMEOUT_MS = int(os.getenv("PLAYWRIGHT_NAV_TIMEOUT_MS", "15000"))
 _MAX_CONCURRENT_PAGES = max(1, int(os.getenv("PLAYWRIGHT_MAX_CONCURRENT", "3")))
 _PAGE_TOTAL_TIMEOUT_SEC = float(os.getenv("PLAYWRIGHT_PAGE_TIMEOUT_SEC", "60"))
 _BROWSER_LAUNCH_TIMEOUT_SEC = float(os.getenv("PLAYWRIGHT_BROWSER_LAUNCH_TIMEOUT", "30"))
-_page_semaphore = asyncio.Semaphore(_MAX_CONCURRENT_PAGES)
+_page_semaphore = anyio.Semaphore(_MAX_CONCURRENT_PAGES)
 
 # ── Anti-detection: browser launch args ──────────────────────────
 _STEALTH_ARGS = [
@@ -310,7 +312,7 @@ class PlaywrightProvider(ScrapingProvider):
         super().__init__(base_url, api_key)
         self.browser = None
         self._context = None
-        self._lock = asyncio.Lock()
+        self._lock = anyio.Lock()
         self._playwright = None
         self._context_created = False
 
@@ -318,7 +320,7 @@ class PlaywrightProvider(ScrapingProvider):
     async def _random_delay(min_ms: float = 600, max_ms: float = 2200):
         if _FAST_MODE:
             return
-        await asyncio.sleep(random.uniform(min_ms / 1000, max_ms / 1000))
+        await anyio.sleep(random.uniform(min_ms / 1000, max_ms / 1000))
 
     @staticmethod
     def _random_user_agent() -> str:
@@ -355,27 +357,25 @@ class PlaywrightProvider(ScrapingProvider):
             self._playwright = await async_playwright().start()
 
         if not self.browser or not self.browser.is_connected():
-            self.browser = await asyncio.wait_for(
-                self._playwright.chromium.launch(headless=_HEADLESS, args=_STEALTH_ARGS),
-                timeout=_BROWSER_LAUNCH_TIMEOUT_SEC,
-            )
+            with anyio.fail_after(_BROWSER_LAUNCH_TIMEOUT_SEC):
+                self.browser = await self._playwright.chromium.launch(
+                    headless=_HEADLESS, args=_STEALTH_ARGS
+                )
 
         return self.browser
 
     async def _get_context(self):
         async with self._lock:
             if self._context is None:
-                self._context = await asyncio.wait_for(
-                    self._init_context(),
-                    timeout=30,
-                )
+                with anyio.fail_after(30):
+                    self._context = await self._init_context()
             return self._context
 
     async def _init_context(self):
         """Initialize the persistent browser context. Caller must hold _lock."""
         browser = await self._get_browser()
-        ctx = await asyncio.wait_for(
-            browser.new_context(
+        with anyio.fail_after(15):
+            ctx = await browser.new_context(
                 user_agent=self._random_user_agent(),
                 viewport=self._random_viewport(),
                 locale="en-US",
@@ -390,9 +390,7 @@ class PlaywrightProvider(ScrapingProvider):
                 extra_http_headers={
                     "Accept-Language": "en-US,en;q=0.9",
                 },
-            ),
-            timeout=15,
-        )
+            )
         await ctx.add_init_script(_STEALTH_INIT_SCRIPT)
         self._context_created = True
         return ctx
@@ -417,11 +415,9 @@ class PlaywrightProvider(ScrapingProvider):
 
         async with _page_semaphore:
             try:
-                return await asyncio.wait_for(
-                    self._scrape_page(url),
-                    timeout=_PAGE_TOTAL_TIMEOUT_SEC,
-                )
-            except asyncio.TimeoutError:
+                with anyio.fail_after(_PAGE_TOTAL_TIMEOUT_SEC):
+                    return await self._scrape_page(url)
+            except TimeoutError:
                 print(f"[Playwright] Scrape timed out after {_PAGE_TOTAL_TIMEOUT_SEC}s: {url[:80]}")
                 return {"success": False, "error": f"Scrape timed out after {_PAGE_TOTAL_TIMEOUT_SEC}s"}
 
@@ -431,7 +427,8 @@ class PlaywrightProvider(ScrapingProvider):
 
         try:
             context = await self._get_context()
-            page = await asyncio.wait_for(context.new_page(), timeout=15)
+            with anyio.fail_after(15):
+                page = await context.new_page()
 
             response_status = None
             # Fast mode: domcontentloaded first (much faster than networkidle).
@@ -442,7 +439,7 @@ class PlaywrightProvider(ScrapingProvider):
                     )
                     response_status = response.status if response else None
                     print(f"[Playwright] Status: {response_status} (domcontentloaded)")
-                    await asyncio.sleep(1.5)
+                    await anyio.sleep(1.5)
                 except Exception as e:
                     print(f"[Playwright] domcontentloaded failed: {e}")
             else:
@@ -491,9 +488,9 @@ class PlaywrightProvider(ScrapingProvider):
                     pass
             if not found_selector:
                 wait_sec = 12 if is_airline else 2
-                await asyncio.sleep(wait_sec)
+                await anyio.sleep(wait_sec)
             elif is_airline:
-                await asyncio.sleep(5)
+                await anyio.sleep(5)
 
             # Copa / Aeromexico: query params pre-fill the form but do not run search.
             if is_airline and "origin=" in (page.url or url).lower():
@@ -504,7 +501,7 @@ class PlaywrightProvider(ScrapingProvider):
                         )
                         await search_btn.first.click(timeout=8000)
                         print("[Playwright] Copa: clicked SEARCH")
-                        await asyncio.sleep(10)
+                        await anyio.sleep(10)
                     except Exception as exc:
                         print(f"[Playwright] Copa SEARCH click skipped: {exc}")
                 elif "aeromexico.com" in host:
@@ -514,7 +511,7 @@ class PlaywrightProvider(ScrapingProvider):
                         )
                         await search_btn.first.click(timeout=8000)
                         print("[Playwright] Aeromexico: clicked search")
-                        await asyncio.sleep(10)
+                        await anyio.sleep(10)
                     except Exception as exc:
                         print(f"[Playwright] Aeromexico search click skipped: {exc}")
 
@@ -533,7 +530,7 @@ class PlaywrightProvider(ScrapingProvider):
                     )
                     print("[Playwright] Google Flights results loaded")
                 except Exception:
-                    await asyncio.sleep(3)
+                    await anyio.sleep(3)
 
             # ── CHALLENGE DETECTION ────────────────────────────────────────────────
             # Quick check using only URL and title (no body evaluate). In fast mode
@@ -568,7 +565,7 @@ class PlaywrightProvider(ScrapingProvider):
             if challenge_detected and not _FAST_MODE:
                 print(f"[Playwright] Challenge detected, polling for resolution (title='{page_title}')")
                 for _ in range(10):
-                    await asyncio.sleep(1)
+                    await anyio.sleep(1)
                     try:
                         page_url = page.url
                         page_title = await page.title()
@@ -647,7 +644,7 @@ class PlaywrightProvider(ScrapingProvider):
             rows_task = page.evaluate(_FLIGHT_ROW_EXTRACTOR)
             links_task = page.evaluate(_FLIGHT_LINK_EXTRACTOR)
 
-            structured_prices, flight_row_texts, link_objs = await asyncio.gather(
+            structured_prices, flight_row_texts, link_objs = await gather(
                 price_task, rows_task, links_task
             )
 
@@ -739,7 +736,8 @@ class PlaywrightProvider(ScrapingProvider):
         finally:
             if page:
                 try:
-                    await asyncio.wait_for(page.close(), timeout=5)
+                    with anyio.fail_after(5):
+                        await page.close()
                 except Exception:
                     pass
 

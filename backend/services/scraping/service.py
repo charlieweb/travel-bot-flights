@@ -1,5 +1,8 @@
-import asyncio
 import os
+
+import anyio
+from anyio.abc import ObjectSendStream
+from concurrency import gather
 import re
 from datetime import datetime
 from typing import Any, AsyncIterator, List, Optional
@@ -7,6 +10,11 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 import traceback
 
 from schemas.travel import TravelOption
+from .carriers import (
+    find_airline_in_text,
+    match_airline_from_operated_by,
+    match_airline_name,
+)
 from .providers import get_provider
 from .ai_parser import AIParser, _normalize_time_12h
 
@@ -97,7 +105,7 @@ _AGGREGATOR_SCRAPE_TIMEOUT_SEC = 50.0
 _AIRLINE_SCRAPE_TIMEOUT_SEC = 90.0
 _AIRLINE_BATCH_SIZE = 2
 _SCRAPE_CONCURRENCY = 3
-_scrape_slot = asyncio.Semaphore(_SCRAPE_CONCURRENCY)
+_scrape_slot = anyio.Semaphore(_SCRAPE_CONCURRENCY)
 _AI_TIMEOUT_SEC = 20.0
 _MAX_FLIGHTS_PER_SCRAPE = 100
 _AIRLINE_COMPANION_ID_OFFSET = 900_000
@@ -147,30 +155,6 @@ _GOOGLE_ONEWAY_PRICE_RE = re.compile(
 
 _AGGREGATOR_SITE_NAMES = frozenset(name for name, _ in AGGREGATOR_SITES)
 
-# Longest names first; omit short tokens like "Alaska" that match filter sidebars.
-_KNOWN_CARRIERS: tuple[str, ...] = (
-    "American Airlines",
-    "United Airlines",
-    "Copa Airlines",
-    "COPA Airlines",
-    "Southwest Airlines",
-    "JetBlue Airways",
-    "Alaska Airlines",
-    "Frontier Airlines",
-    "Spirit Airlines",
-    "Aeromexico",
-    "Avianca",
-    "United",
-    "American",
-    "Southwest",
-    "Delta",
-    "JetBlue",
-    "Frontier",
-    "Spirit",
-    "Copa",
-    "COPA",
-)
-
 
 def _route_codes_in_text(text: str, origin: str, destination: str) -> bool:
     """True when snippet looks like a flight card for this origin→destination."""
@@ -186,15 +170,11 @@ def _route_codes_in_text(text: str, origin: str, destination: str) -> bool:
     return o_pos >= 0 and d_pos >= 0 and abs(o_pos - d_pos) <= 120
 
 
-_OPERATED_BY_RE = re.compile(
-    r"(?:operated by|Operado por)\s+([^\n|•]+)",
-    re.IGNORECASE,
-)
 _CARD_LINE_SKIP_RE = re.compile(
     r"^\s*("
     r"\$|usd|\d{1,2}:\d{2}|\d{1,2}\s*[ap]\.?m\.?|round\s*trip|one-?way|"
     r"nonstop|non-stop|\d+\s*stop|stop\(|layover|\d+\s*hr|hour|min|"
-    r"bags?|emissions|cheapest|best\b|top\s|filter|price|duration|"
+    r"bags?|emissions?|co2|carbon|\bkg\b|cheapest|best\b|top\s|filter|price|duration|"
     r"depart|arriv|flight\s*#|\+\d|google|kayak|skyscanner|expedia|"
     r"to\s+update|update\s+prices?|click\s+to|select\s+flight"
     r")\b",
@@ -207,36 +187,6 @@ _MARKETING_LINE_RE = re.compile(
     r"^\*|restrictions apply|terms & conditions|our app|popular flights",
     re.IGNORECASE,
 )
-_UI_CARRIER_SKIP_RE = re.compile(
-    r"update\s+prices?|prices?\s+updated|click\s+to|tap\s+to|refresh\s+"
-    r"|loading|searching|select\s+flight|view\s+details|show\s+more|see\s+all|"
-    r"track\s+prices?|price\s+alert|sign\s+in|log\s+in|get\s+updates?",
-    re.IGNORECASE,
-)
-_INVALID_CARRIER_NAMES = frozenset(
-    s.lower()
-    for s in (
-        "to update prices.",
-        "to update prices",
-        "update prices",
-        "update prices.",
-        "best",
-        "cheapest",
-        "top departing flights",
-        "other departing flights",
-        "google flights",
-        "kayak",
-        "skyscanner",
-        "expedia",
-        "flight option",
-        "unknown",
-        "round trip",
-        "one way",
-        "nonstop",
-    )
-)
-
-
 def _is_marketing_line(line: str) -> bool:
     stripped = line.strip()
     if not stripped or len(stripped) > 120:
@@ -249,32 +199,8 @@ def _is_marketing_line(line: str) -> bool:
 
 
 def _is_valid_carrier_name(name: str | None) -> bool:
-    """Reject UI copy and page chrome mistaken for an airline name."""
-    if not name:
-        return False
-    stripped = name.strip()
-    if len(stripped) < 2 or len(stripped) > 80:
-        return False
-    lower = stripped.lower().rstrip(".")
-    if lower in _INVALID_CARRIER_NAMES:
-        return False
-    if _is_marketing_line(stripped) or _UI_CARRIER_SKIP_RE.search(stripped):
-        return False
-    # "to update prices", "to see more", etc.
-    if re.match(r"^to\s+[a-z]", stripped, re.IGNORECASE):
-        return False
-    # Sentence-like UI labels (period, no airline-ish token)
-    if stripped.endswith(".") and not re.search(
-        r"\b(air|lines?|ways?|express|jet|aviation)\b", stripped, re.IGNORECASE
-    ):
-        return False
-    # Mostly lowercase phrase — brands are usually Title Case
-    alpha = re.sub(r"[^A-Za-z]", "", stripped)
-    if alpha and alpha.islower() and " " in stripped:
-        return False
-    if not re.search(r"[A-Za-z]{2}", stripped):
-        return False
-    return True
+    """True only when name matches a known airline."""
+    return match_airline_name(name or "") is not None
 
 
 def _strip_marketing_header(markdown: str) -> str:
@@ -289,32 +215,16 @@ def _strip_marketing_header(markdown: str) -> str:
 
 
 def _extract_carrier_label_from_card(snippet: str, route_end: int) -> str | None:
-    """First line above the route that looks like an airline name."""
+    """Known airline from 'operated by' or a card line above the route."""
     card = snippet[max(0, route_end - 380) : route_end]
-    operated = _OPERATED_BY_RE.search(card)
-    if operated:
-        label = operated.group(1).strip()
-        if 2 <= len(label) <= 80:
-            return label
+    matched = match_airline_from_operated_by(card)
+    if matched:
+        return matched
 
     for line in reversed([ln.strip() for ln in card.splitlines() if ln.strip()]):
-        if len(line) < 2 or len(line) > 80:
-            continue
-        if _CARD_LINE_SKIP_RE.search(line) or _is_marketing_line(line):
-            continue
-        if re.search(r"\d{1,2}:\d{2}\s*[AP]", line, re.I):
-            continue
-        if re.fullmatch(r"[A-Z]{3}\s*[–\-—]\s*[A-Z]{3}", line.upper()):
-            continue
-        if re.match(r"^[\d$%,.\s]+$", line):
-            continue
-        if line.lower() in _INVALID_CARRIER_NAMES:
-            continue
-        if _UI_CARRIER_SKIP_RE.search(line):
-            continue
-        if not _is_valid_carrier_name(line):
-            continue
-        return line
+        matched = match_airline_name(line)
+        if matched:
+            return matched
     return None
 
 
@@ -338,43 +248,33 @@ def _carrier_from_itinerary_snippet(
             if pos >= 0:
                 route_end = min(route_end, pos + len(marker))
 
-    def _last_known_carrier(text: str) -> str | None:
-        text_upper = text.upper()
-        best_name: str | None = None
-        best_pos = -1
-        for name in _KNOWN_CARRIERS:
-            pos = text_upper.rfind(name.upper())
-            if pos > best_pos:
-                best_pos = pos
-                best_name = name.replace("COPA", "Copa")
-        return best_name if best_pos >= 0 else None
-
     near = snippet[max(0, route_end - 220) : route_end]
-    found = _last_known_carrier(near)
+    found = find_airline_in_text(near)
     if found:
         return found
 
     wide = snippet[max(0, route_end - 450) : route_end]
-    filter_sidebar = (
-        sum(1 for name in _KNOWN_CARRIERS if name.upper() in wide.upper()) >= 4
-    )
+    filter_sidebar = sum(
+        1 for name in ("American", "United", "Delta", "Southwest", "JetBlue")
+        if name.upper() in wide.upper()
+    ) >= 4
     if not filter_sidebar:
-        found = _last_known_carrier(wide)
+        found = find_airline_in_text(wide)
         if found:
             return found
 
     label = _extract_carrier_label_from_card(snippet, route_end)
-    if label and _is_valid_carrier_name(label):
+    if label:
         return label
 
-    # Whole-card fallback (e.g. airline name below route on Google)
     if not filter_sidebar:
-        found = _last_known_carrier(snippet)
+        found = find_airline_in_text(snippet)
         if found:
             return found
 
-    if default not in _AGGREGATOR_SITE_NAMES and _is_valid_carrier_name(default):
-        return default
+    matched_default = match_airline_name(default)
+    if matched_default:
+        return matched_default
     return None
 
 
@@ -383,9 +283,13 @@ def _finalize_carrier_name(
     site_name: str,
     source_type: str,
 ) -> str | None:
-    if carrier and _is_valid_carrier_name(carrier):
-        return carrier
+    matched = match_airline_name(carrier or "")
+    if matched:
+        return matched
+    site_airline = match_airline_name(site_name)
     if source_type == "airline" and site_name in _AIRLINE_SITE_NAMES:
+        return site_airline or site_name
+    if source_type == "aggregator" and site_name in _AGGREGATOR_SITE_NAMES:
         return site_name
     return None
 
@@ -598,13 +502,11 @@ class ScrapingService:
     ) -> List[TravelOption]:
         """Search for travel options using multiple sources in parallel."""
         try:
-            return await asyncio.wait_for(
-                self._search_travel_options_impl(
+            with anyio.fail_after(_SEARCH_TIMEOUT_SEC):
+                return await self._search_travel_options_impl(
                     origin, destination, depart_date, return_date
-                ),
-                timeout=_SEARCH_TIMEOUT_SEC,
-            )
-        except asyncio.TimeoutError:
+                )
+        except TimeoutError:
             print(
                 f"[ScrapingService] Search timed out after {_SEARCH_TIMEOUT_SEC}s "
                 f"({origin} -> {destination})"
@@ -627,7 +529,7 @@ class ScrapingService:
             f"[ScrapingService] Scraping {len(AGGREGATOR_SITES)} aggregator(s) and "
             f"{len(AIRLINE_SITES)} airline site(s) in parallel"
         )
-        aggregator_results, airline_results = await asyncio.gather(
+        aggregator_results, airline_results = await gather(
             self._scrape_aggregator_sites(
                 origin, destination, depart_date, return_date, 1
             ),
@@ -678,8 +580,9 @@ class ScrapingService:
         """Run scrape with slot limit so queue time does not eat the timeout."""
         async with _scrape_slot:
             try:
-                return await asyncio.wait_for(coro, timeout=timeout_sec)
-            except asyncio.TimeoutError:
+                with anyio.fail_after(timeout_sec):
+                    return await coro
+            except TimeoutError:
                 print(
                     f"[ScrapingService] {site_name} scrape timed out after "
                     f"{timeout_sec}s"
@@ -749,48 +652,60 @@ class ScrapingService:
             )
             return site_name, options
 
-        all_tasks = [
-            asyncio.create_task(scrape_one(name, url), name=name)
-            for name, url in AGGREGATOR_SITES
-        ] + [
-            asyncio.create_task(scrape_airline_one(name, url), name=name)
-            for name, url in AIRLINE_SITES
-        ]
+        send_stream, receive_stream = anyio.create_memory_object_stream[
+            tuple[str, list[TravelOption]]
+        ](0)
 
-        try:
-            deadline = asyncio.get_running_loop().time() + _SEARCH_TIMEOUT_SEC
-            pending = set(all_tasks)
+        async def run_scrapers() -> None:
+            try:
+                async with anyio.create_task_group() as tg:
+                    for name, url in AGGREGATOR_SITES:
+                        tg.start_soon(_stream_scrape_one, name, url, send_stream)
+                    for name, url in AIRLINE_SITES:
+                        tg.start_soon(_stream_scrape_airline_one, name, url, send_stream)
+            finally:
+                await send_stream.aclose()
 
-            while pending:
-                timeout = max(0.1, deadline - asyncio.get_running_loop().time())
-                done, pending = await asyncio.wait(
-                    pending, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
-                )
-                if not done:
-                    break
-                for task in done:
-                    site_name = task.get_name()
-                    try:
-                        source, options = task.result()
-                    except Exception as exc:
-                        print(f"[ScrapingService] Stream task {site_name} failed: {exc}")
-                        self._mark_source(site_name, f"error:{exc}")
-                        continue
-                    if options:
-                        had_fares = True
-                        yield {
-                            "event": "chunk",
-                            "options": self._serialize_options(options),
-                            "source": source,
-                            "done": False,
-                        }
+        async def _stream_scrape_one(
+            site_name: str,
+            base_url: str,
+            stream: ObjectSendStream[tuple[str, list[TravelOption]]],
+        ) -> None:
+            try:
+                result = await scrape_one(site_name, base_url)
+                await stream.send(result)
+            except Exception as exc:
+                print(f"[ScrapingService] Stream task {site_name} failed: {exc}")
+                self._mark_source(site_name, f"error:{exc}")
 
-            for task in pending:
-                task.cancel()
-        finally:
-            for task in all_tasks:
-                if not task.done():
-                    task.cancel()
+        async def _stream_scrape_airline_one(
+            site_name: str,
+            base_url: str,
+            stream: ObjectSendStream[tuple[str, list[TravelOption]]],
+        ) -> None:
+            try:
+                result = await scrape_airline_one(site_name, base_url)
+                await stream.send(result)
+            except Exception as exc:
+                print(f"[ScrapingService] Stream task {site_name} failed: {exc}")
+                self._mark_source(site_name, f"error:{exc}")
+
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(run_scrapers)
+            try:
+                with anyio.fail_after(_SEARCH_TIMEOUT_SEC):
+                    async with receive_stream:
+                        async for source, options in receive_stream:
+                            if options:
+                                had_fares = True
+                                yield {
+                                    "event": "chunk",
+                                    "options": self._serialize_options(options),
+                                    "source": source,
+                                    "done": False,
+                                }
+            except TimeoutError:
+                pass
 
         if not had_fares:
             extra = self._make_search_fallbacks(
@@ -850,7 +765,7 @@ class ScrapingService:
             )
             for name, url in AGGREGATOR_SITES
         ]
-        scraping_results = await asyncio.gather(*scrape_tasks)
+        scraping_results = await gather(*scrape_tasks)
 
         stride = 10000
         parse_tasks = []
@@ -866,7 +781,7 @@ class ScrapingService:
                 )
             )
 
-        parsed = await asyncio.gather(*parse_tasks) if parse_tasks else []
+        parsed = await gather(*parse_tasks) if parse_tasks else []
         all_options: list[TravelOption] = []
         for opts, _ in parsed:
             all_options.extend(opts)
@@ -1147,7 +1062,7 @@ class ScrapingService:
             f"[ScrapingService] Airline scrape (parallel): "
             f"{', '.join(n for n, _ in AIRLINE_SITES)}"
         )
-        batch_results = await asyncio.gather(
+        batch_results = await gather(
             *[
                 scrape_and_parse(name, url, start_id + idx * stride)
                 for idx, (name, url) in enumerate(AIRLINE_SITES)
@@ -1204,18 +1119,16 @@ class ScrapingService:
         )
 
         try:
-            ai_flights = await asyncio.wait_for(
-                self.ai_parser.parse_flights(
+            with anyio.fail_after(_AI_TIMEOUT_SEC):
+                ai_flights = await self.ai_parser.parse_flights(
                     page_content=ai_content,
                     site_name=res["site_name"],
                     origin=origin,
                     destination=destination,
                     depart_date=depart_date,
                     return_date=return_date,
-                ),
-                timeout=_AI_TIMEOUT_SEC,
-            )
-        except asyncio.TimeoutError:
+                )
+        except TimeoutError:
             print(f"[ScrapingService] AI parsing timed out for {res['site_name']} after {_AI_TIMEOUT_SEC}s")
             ai_flights = []
         except Exception as e:
