@@ -59,6 +59,12 @@ travel-bot/
 │   └── .venv/
 ```
 
+## CI/CD
+- **GitHub Actions**: `.github/workflows/ci.yml` — backend (`uv` sync + import smoke) and frontend (`pnpm build`) on `push`/`pull_request` to `main`
+- **Railway**: project `travel-bot`; services use Dockerfile + `rootDirectory` (`/backend`, `/frontend`)
+- Enable **Wait for CI** on Railway after the GitHub App is connected so deploys wait for Actions
+- Connect GitHub: https://railway.com/account (authorize Railway App for `charlieweb/travel-bot-flights`)
+
 ## Commands
 
 ### Docker (Production)

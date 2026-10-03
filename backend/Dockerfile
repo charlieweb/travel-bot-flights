@@ -20,5 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 
 EXPOSE 8000
 
+# Railway injects PORT; default 8000 for local Docker
+ENV PORT=8000
+
 # Use uv run to execute with the virtual environment
-CMD ["uv", "run", "--no-dev", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uv run --no-dev uvicorn main:app --host 0.0.0.0 --port ${PORT}"]

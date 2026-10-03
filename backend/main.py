@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,16 @@ from routers.airports import router as airports_router
 from middleware.error_handlers import register_exception_handlers
 
 load_dotenv()
+
+_DEFAULT_ORIGINS = (
+    "http://localhost:3000,"
+    "https://frontend-production-6d6e.up.railway.app"
+)
+_CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ALLOW_ORIGINS", _DEFAULT_ORIGINS).split(",")
+    if o.strip()
+]
 
 
 @asynccontextmanager
@@ -19,7 +30,7 @@ app = FastAPI(title="Travel Bot API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

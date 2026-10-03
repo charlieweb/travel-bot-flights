@@ -181,6 +181,45 @@ pnpm install
 pnpm run dev
 ```
 
+## CI/CD (GitHub + Railway)
+
+### GitHub Actions
+
+Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+| Job | Checks |
+|-----|--------|
+| **Backend** | `uv sync --frozen`, compileall, import smoke test |
+| **Frontend** | `pnpm install --frozen-lockfile`, `pnpm run build` |
+
+Runs on every push and PR to `main`. Railway can wait for this CI before deploying (**Wait for CI**).
+
+### Railway GitHub deploys
+
+Project: [travel-bot on Railway](https://railway.com/project/4836a3b4-2260-462f-8315-11f1e1f71c1a)
+
+1. **Connect GitHub** (required once): open [Railway → Account → GitHub](https://railway.com/account) and install/authorize the Railway GitHub App for `charlieweb/travel-bot-flights`.
+2. In each service (**backend**, **frontend**) → **Settings**:
+   - Source: `charlieweb/travel-bot-flights`
+   - Branch: `main`
+   - Root Directory: `/backend` or `/frontend`
+   - Builder: Dockerfile
+   - Enable **Wait for CI**
+3. Push to `main` → GitHub Actions runs → Railway deploys each service when CI passes.
+
+```bash
+git add .
+git commit -m "Add GitHub Actions CI and Railway deploy wiring"
+git push origin main
+```
+
+Live URLs (after deploy):
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://frontend-production-6d6e.up.railway.app |
+| Backend | https://backend-production-722d.up.railway.app |
+
 ## Docker Architecture
 
 ### Container Communication
