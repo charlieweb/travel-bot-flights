@@ -155,19 +155,157 @@ _GOOGLE_ONEWAY_PRICE_RE = re.compile(
 
 _AGGREGATOR_SITE_NAMES = frozenset(name for name, _ in AGGREGATOR_SITES)
 
+# City ↔ airport aliases so TYO matches NRT/HND (and similar metro codes).
+_CITY_CODE_ALIASES: dict[str, frozenset[str]] = {
+    "TYO": frozenset({"TYO", "NRT", "HND"}),
+    "NRT": frozenset({"TYO", "NRT", "HND"}),
+    "HND": frozenset({"TYO", "NRT", "HND"}),
+    "NYC": frozenset({"NYC", "JFK", "LGA", "EWR"}),
+    "JFK": frozenset({"NYC", "JFK", "LGA", "EWR"}),
+    "LGA": frozenset({"NYC", "JFK", "LGA", "EWR"}),
+    "EWR": frozenset({"NYC", "JFK", "LGA", "EWR"}),
+    "LON": frozenset({"LON", "LHR", "LGW", "STN", "LCY"}),
+    "LHR": frozenset({"LON", "LHR", "LGW", "STN", "LCY"}),
+    "LGW": frozenset({"LON", "LHR", "LGW", "STN", "LCY"}),
+    "PAR": frozenset({"PAR", "CDG", "ORY"}),
+    "CDG": frozenset({"PAR", "CDG", "ORY"}),
+    "ORY": frozenset({"PAR", "CDG", "ORY"}),
+    "CHI": frozenset({"CHI", "ORD", "MDW"}),
+    "ORD": frozenset({"CHI", "ORD", "MDW"}),
+    "MDW": frozenset({"CHI", "ORD", "MDW"}),
+}
 
-def _route_codes_in_text(text: str, origin: str, destination: str) -> bool:
-    """True when snippet looks like a flight card for this origin→destination."""
-    o, d = origin.upper(), destination.upper()
-    upper = text.upper()
-    if o not in upper or d not in upper:
-        return False
-    for sep in ("–", "-", "—", " to "):
-        if f"{o}{sep}{d}" in upper:
+# City / airport names shown on aggregator cards instead of IATA codes.
+_CODE_CITY_NAMES: dict[str, tuple[str, ...]] = {
+    "LAX": ("LOS ANGELES",),
+    "SFO": ("SAN FRANCISCO",),
+    "JFK": ("NEW YORK", "JOHN F. KENNEDY", "JFK"),
+    "LGA": ("NEW YORK", "LAGUARDIA"),
+    "EWR": ("NEWARK", "NEW YORK"),
+    "ORD": ("CHICAGO", "O'HARE", "OHARE"),
+    "MDW": ("CHICAGO", "MIDWAY"),
+    "MIA": ("MIAMI",),
+    "ATL": ("ATLANTA",),
+    "DFW": ("DALLAS",),
+    "SEA": ("SEATTLE",),
+    "BOS": ("BOSTON",),
+    "IAD": ("WASHINGTON", "DULLES"),
+    "DCA": ("WASHINGTON",),
+    "MGA": ("MANAGUA",),
+    "NRT": ("TOKYO", "NARITA"),
+    "HND": ("TOKYO", "HANEDA"),
+    "TYO": ("TOKYO",),
+    "LHR": ("LONDON", "HEATHROW"),
+    "LGW": ("LONDON", "GATWICK"),
+    "CDG": ("PARIS",),
+    "ORY": ("PARIS", "ORLY"),
+    "AMS": ("AMSTERDAM",),
+    "FRA": ("FRANKFURT",),
+    "MAD": ("MADRID",),
+    "FCO": ("ROME",),
+    "BCN": ("BARCELONA",),
+    "DXB": ("DUBAI",),
+    "SIN": ("SINGAPORE",),
+    "ICN": ("SEOUL",),
+    "BKK": ("BANGKOK",),
+    "SYD": ("SYDNEY",),
+    "HKG": ("HONG KONG",),
+    "GRU": ("SAO PAULO", "SÃO PAULO"),
+    "MEX": ("MEXICO CITY",),
+    "CUN": ("CANCUN", "CANCÚN"),
+    "PTY": ("PANAMA CITY", "PANAMA"),
+    "BOG": ("BOGOTA", "BOGOTÁ"),
+    "LIM": ("LIMA",),
+    "SCL": ("SANTIAGO",),
+    "EZE": ("BUENOS AIRES",),
+    "GIG": ("RIO DE JANEIRO", "RIO"),
+}
+
+_NO_FLIGHTS_RE = re.compile(
+    r"no flights?\s+(found|available|match)|"
+    r"we (couldn'?t|cannot|can'?t|don'?t)\s+(find|fly)|"
+    r"does not (fly|serve)|no results|0 results|"
+    r"not available for (this|your) (route|search|dates?)|"
+    r"unable to find|sorry[,.]?\s+there are no|"
+    r"no itinerar|sold out for (this|your)|"
+    r"no outbound flights|select a different (date|airport|city)",
+    re.IGNORECASE,
+)
+
+
+def _airport_code_set(code: str) -> frozenset[str]:
+    c = (code or "").strip().upper()
+    if not c:
+        return frozenset()
+    return _CITY_CODE_ALIASES.get(c, frozenset({c}))
+
+
+def _endpoint_labels(code: str) -> tuple[str, ...]:
+    """IATA codes + city/airport name labels for an endpoint."""
+    codes = _airport_code_set(code)
+    labels: list[str] = []
+    for c in sorted(codes, key=len, reverse=True):
+        labels.append(c)
+        labels.extend(_CODE_CITY_NAMES.get(c, ()))
+    # Preserve order, drop dupes
+    seen: set[str] = set()
+    out: list[str] = []
+    for label in labels:
+        key = label.upper()
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return tuple(out)
+
+
+def _endpoint_in_text(text_upper: str, code: str) -> bool:
+    for label in _endpoint_labels(code):
+        if re.search(rf"\b{re.escape(label)}\b", text_upper):
             return True
-    o_pos = upper.rfind(o)
-    d_pos = upper.rfind(d)
-    return o_pos >= 0 and d_pos >= 0 and abs(o_pos - d_pos) <= 120
+    return False
+
+
+def _route_codes_in_text(
+    text: str,
+    origin: str,
+    destination: str,
+    *,
+    require_proximity: bool = False,
+) -> bool:
+    """True when text mentions both endpoints (IATA or city name).
+
+    Page-level checks use require_proximity=False (codes may be far apart in
+    headers). Fare-card checks for airline sites use proximity to avoid
+    matching unrelated marketing routes.
+    """
+    o_codes = _airport_code_set(origin)
+    d_codes = _airport_code_set(destination)
+    if not o_codes or not d_codes:
+        return False
+    upper = text.upper()
+    if not _endpoint_in_text(upper, origin) or not _endpoint_in_text(upper, destination):
+        return False
+    if not require_proximity:
+        return True
+
+    o_labels = _endpoint_labels(origin)
+    d_labels = _endpoint_labels(destination)
+    for sep in ("–", "-", "—", " TO "):
+        for o in o_labels:
+            for d in d_labels:
+                if f"{o}{sep}{d}" in upper:
+                    return True
+
+    def _last_pos(labels: tuple[str, ...]) -> int:
+        best = -1
+        for label in labels:
+            for m in re.finditer(rf"\b{re.escape(label)}\b", upper):
+                best = max(best, m.start())
+        return best
+
+    o_pos = _last_pos(o_labels)
+    d_pos = _last_pos(d_labels)
+    return o_pos >= 0 and d_pos >= 0 and abs(o_pos - d_pos) <= 160
 
 
 _CARD_LINE_SKIP_RE = re.compile(
@@ -1108,6 +1246,16 @@ class ScrapingService:
         if fast_parse:
             return []
 
+        if not _route_codes_in_text(markdown, origin, destination):
+            print(
+                f"[ScrapingService] No route codes for AI on {res['site_name']}; skipping"
+            )
+            return []
+        if _NO_FLIGHTS_RE.search(markdown):
+            print(
+                f"[ScrapingService] No-flights message on {res['site_name']}; skipping AI"
+            )
+            return []
         if not ScrapingService._markdown_has_fare_signals(markdown):
             print(f"[ScrapingService] No fare signals in {res['site_name']}, skipping AI")
             return []
@@ -1146,6 +1294,16 @@ class ScrapingService:
                 source_type=source_type,
                 source_url=res.get("page_url") or res["url"],
             )
+            # Airline site scrapes must stay on that carrier; drop AI hallucinations.
+            if source_type == "airline" and res["site_name"] in _AIRLINE_SITE_NAMES:
+                site_key = (match_airline_name(res["site_name"]) or res["site_name"]).lower()
+                options = [
+                    o for o in options
+                    if (
+                        (ak := (match_airline_name(o.airline) or o.airline).lower())
+                        and (ak == site_key or ak in site_key or site_key in ak)
+                    )
+                ]
             if options:
                 print(f"[ScrapingService] AI parsed {len(options)} flights from {res['site_name']}")
                 return options
@@ -1455,8 +1613,10 @@ class ScrapingService:
 
             block_lower = block.lower()
 
-            if source_type == "aggregator" and not _route_codes_in_text(
-                block, origin, destination
+            # Airline sites: each card must mention this route (avoids marketing fares).
+            # Aggregators: page already validated; cards often show city names only.
+            if source_type == "airline" and not _route_codes_in_text(
+                block, origin, destination, require_proximity=True
             ):
                 continue
 
@@ -1481,27 +1641,22 @@ class ScrapingService:
                 time_matches = re.findall(
                     r"(\d{1,2}\s*[AP]\.?M\.?)", tail, re.IGNORECASE
                 )
+            # Never invent schedule times from marketing copy.
+            if len(time_matches) < 2:
+                continue
 
-            depart_time = "08:00 AM"
-            arrival_time = "11:00 AM"
-            if len(time_matches) >= 2:
-                depart_time = (
-                    time_matches[0].strip().upper().replace(".", "").replace(" ", "")
-                )
-                arrival_time = (
-                    time_matches[1].strip().upper().replace(".", "").replace(" ", "")
-                )
-            elif len(time_matches) == 1:
-                depart_time = (
-                    time_matches[0].strip().upper().replace(".", "").replace(" ", "")
-                )
-
+            depart_time = (
+                time_matches[0].strip().upper().replace(".", "").replace(" ", "")
+            )
+            arrival_time = (
+                time_matches[1].strip().upper().replace(".", "").replace(" ", "")
+            )
             depart_time = _normalize_time_12h(depart_time) or depart_time
             arrival_time = _normalize_time_12h(arrival_time) or arrival_time
 
             stops = self._parse_stops_from_text(block_lower)
 
-            duration = "2h 30m"
+            duration = ""
             duration_match = re.search(
                 r"(\d+)h\s*m|(\d+)h(\d+)m|(\d+)\s*hour", block_lower
             )
@@ -1582,9 +1737,14 @@ class ScrapingService:
             snippet = markdown[start:end].strip()
             if len(snippet) < 25:
                 continue
+            if source_type == "airline" and not _route_codes_in_text(
+                snippet, origin, destination, require_proximity=True
+            ):
+                continue
             if source_type == "aggregator" and not _route_codes_in_text(
                 snippet, origin, destination
             ):
+                # Soft: both endpoints somewhere in the offer window (city or code)
                 continue
             snippets.append(snippet)
             if len(snippets) >= _MAX_FLIGHTS_PER_SCRAPE:
@@ -1621,17 +1781,15 @@ class ScrapingService:
         print(f"[Parser] Processing {site_name}, content length: {len(markdown)}")
         print(f"[Parser] Looking for origin={origin}, dest={destination}")
 
-        has_origin_code = re.search(rf"\b{origin.upper()}\b", markdown)
-        has_destination_code = re.search(rf"\b{destination.upper()}\b", markdown)
-
-        if not (has_origin_code and has_destination_code):
-            if source_type in ("direct", "airline"):
-                print(
-                    f"[Parser] Airport codes not in page text; continuing for airline {site_name}"
-                )
-            else:
-                print("[Parser] Origin or destination code not found in content, rejecting")
-                return []
+        if not _route_codes_in_text(markdown, origin, destination):
+            print(
+                f"[Parser] Origin/destination not found for {origin}->{destination} "
+                f"on {site_name}; rejecting"
+            )
+            return []
+        if source_type == "airline" and _NO_FLIGHTS_RE.search(markdown):
+            print(f"[Parser] No-flights message on {site_name}; rejecting")
+            return []
 
         common = (
             start_id,
@@ -1733,8 +1891,12 @@ class ScrapingService:
 
                 win_start = max(0, match.start() - 700)
                 window = markdown[win_start : match.start()]
-
-                if not _route_codes_in_text(window, origin, destination):
+                # Prefer windows that mention the route; still accept timed fare
+                # cards when the full Google page already validated for this OD.
+                window_has_route = _route_codes_in_text(window, origin, destination)
+                if not window_has_route and not _route_codes_in_text(
+                    markdown, origin, destination
+                ):
                     continue
 
                 window_lower = window.lower()
@@ -1830,10 +1992,15 @@ class ScrapingService:
             win_start = max(0, match.start() - 550)
             window = markdown[win_start : match.start() + 120]
 
-            if source_type == "aggregator" and not _route_codes_in_text(
-                window, origin, destination
-            ):
-                continue
+            if source_type == "airline":
+                if not _route_codes_in_text(
+                    window, origin, destination, require_proximity=True
+                ):
+                    continue
+            elif not _route_codes_in_text(window, origin, destination):
+                # Aggregator fare windows often omit codes; allow if page has route.
+                if not _route_codes_in_text(markdown, origin, destination):
+                    continue
 
             time_matches = re.findall(
                 r"(\d{1,2}:\d{2}\s*[AP]\.?M\.?)", window, re.IGNORECASE
@@ -2079,12 +2246,7 @@ class ScrapingService:
         site_name: str = "",
     ) -> tuple[bool, str]:
         """Validate that content contains real flight data for the specific route."""
-        origin_u = re.escape(origin.upper())
-        dest_u = re.escape(destination.upper())
-        has_origin_code = bool(re.search(rf"\b{origin_u}\b", markdown, re.IGNORECASE))
-        has_dest_code = bool(re.search(rf"\b{dest_u}\b", markdown, re.IGNORECASE))
-        has_codes = has_origin_code and has_dest_code
-
+        has_codes = _route_codes_in_text(markdown, origin, destination)
         has_price = bool(_PRICE_SIGNAL_RE.search(markdown))
         has_times = bool(
             re.search(r"\d{1,2}:\d{2}\s*[ap]\.?m", markdown, re.IGNORECASE)
@@ -2102,26 +2264,29 @@ class ScrapingService:
                 flight_indicators += 1
 
         is_airline_site = site_name in _AIRLINE_SITE_NAMES
+        # Aggregator UIs often contain "no results" chrome in filters — only trust
+        # empty-state copy on airline booking pages.
+        if is_airline_site and _NO_FLIGHTS_RE.search(markdown):
+            return False, "No flights available for route"
+
+        # Airline sites often show generic marketing prices; require the route.
+        if not has_codes:
+            return False, "Origin/destination codes not found"
+
         if is_airline_site:
-            if has_price and (has_times or flight_indicators >= 1):
-                return True, "Airline page with fares"
-            if len(markdown) > 800 and (has_price or has_times or flight_indicators >= 2):
-                return True, "Airline booking page content"
-            if len(markdown) > 2500:
-                return True, "Airline page (large content)"
-            return False, "No airline fares detected"
+            if has_price and has_times:
+                return True, "Airline page with route fares"
+            if has_price and flight_indicators >= 2:
+                return True, "Airline page with route + fare signals"
+            return False, "No airline fares detected for route"
 
         if has_codes and flight_indicators >= 2:
             return True, "Valid flight data (route codes)"
         if has_codes and has_price:
             return True, "Route codes and price"
-        if has_price and (has_times or flight_indicators >= 2):
+        if has_price and has_times:
             return True, "Price and schedule signals"
-        if len(markdown) > 1500 and has_price and flight_indicators >= 1:
-            return True, "Rich page with pricing"
 
-        if not has_codes:
-            return False, "Origin/destination codes not found"
         return False, "No flight data"
 
     def _make_search_fallbacks(

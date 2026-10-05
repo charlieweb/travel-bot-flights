@@ -211,11 +211,16 @@ class AIParser:
             if price is None:
                 continue
 
-            depart = f.get("depart_time", "08:00 AM")
-            arrival = f.get("arrival_time", "11:00 AM")
+            depart = _normalize_time_12h(f.get("depart_time"))
+            arrival = _normalize_time_12h(f.get("arrival_time"))
+            if not depart or not arrival:
+                continue
 
-            duration = f.get("duration", "2h 30m")
-            stops = int(f.get("stops", 0))
+            duration = str(f.get("duration") or "").strip()
+            try:
+                stops = int(f.get("stops", 0))
+            except (TypeError, ValueError):
+                stops = 0
 
             airline = match_airline_name(f.get("airline") or "")
             if not airline:

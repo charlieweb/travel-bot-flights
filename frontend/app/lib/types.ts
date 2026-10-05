@@ -36,11 +36,23 @@ export interface SearchRequest {
 }
 
 export interface SearchState {
+  query: string
   origin: string
   destination: string
+  originAirport: Airport | null
+  destinationAirport: Airport | null
   departDate: string
   returnDate: string
+  parsing: boolean
   results: TravelOption[]
   loading: boolean
   error: string
+}
+
+export interface ParsedSearch {
+  origin: string | null
+  destination: string | null
+  depart_date: string | null
+  return_date: string | null
+  missing_fields: string[]
 }

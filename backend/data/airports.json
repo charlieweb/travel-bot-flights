@@ -1,0 +1,776 @@
+[
+  {
+    "code": "ABQ",
+    "name": "Albuquerque International Sunport",
+    "city": "Albuquerque",
+    "country": "US"
+  },
+  {
+    "code": "AKL",
+    "name": "Auckland Airport",
+    "city": "Auckland",
+    "country": "NZ"
+  },
+  {
+    "code": "AMS",
+    "name": "Amsterdam Airport Schiphol",
+    "city": "Amsterdam",
+    "country": "NL"
+  },
+  {
+    "code": "ANC",
+    "name": "Ted Stevens Anchorage International Airport",
+    "city": "Anchorage",
+    "country": "US"
+  },
+  {
+    "code": "ARN",
+    "name": "Stockholm Arlanda Airport",
+    "city": "Stockholm",
+    "country": "SE"
+  },
+  {
+    "code": "ATH",
+    "name": "Athens International Airport",
+    "city": "Athens",
+    "country": "GR"
+  },
+  {
+    "code": "ATL",
+    "name": "Hartsfield-Jackson Atlanta International Airport",
+    "city": "Atlanta",
+    "country": "US"
+  },
+  {
+    "code": "AUS",
+    "name": "Austin-Bergstrom International Airport",
+    "city": "Austin",
+    "country": "US"
+  },
+  {
+    "code": "BCN",
+    "name": "Barcelona–El Prat Airport",
+    "city": "Barcelona",
+    "country": "ES"
+  },
+  {
+    "code": "BEL",
+    "name": "Val de Cans International Airport",
+    "city": "Belém",
+    "country": "BR"
+  },
+  {
+    "code": "BER",
+    "name": "Berlin Brandenburg Airport",
+    "city": "Berlin",
+    "country": "DE"
+  },
+  {
+    "code": "BKK",
+    "name": "Suvarnabhumi Airport",
+    "city": "Bangkok",
+    "country": "TH"
+  },
+  {
+    "code": "BNA",
+    "name": "Nashville International Airport",
+    "city": "Nashville",
+    "country": "US"
+  },
+  {
+    "code": "BNE",
+    "name": "Brisbane Airport",
+    "city": "Brisbane",
+    "country": "AU"
+  },
+  {
+    "code": "BOG",
+    "name": "El Dorado International Airport",
+    "city": "Bogotá",
+    "country": "CO"
+  },
+  {
+    "code": "BOS",
+    "name": "Logan International Airport",
+    "city": "Boston",
+    "country": "US"
+  },
+  {
+    "code": "BSB",
+    "name": "Brasília International Airport",
+    "city": "Brasília",
+    "country": "BR"
+  },
+  {
+    "code": "BWI",
+    "name": "Baltimore/Washington International Airport",
+    "city": "Baltimore",
+    "country": "US"
+  },
+  {
+    "code": "CDG",
+    "name": "Charles de Gaulle Airport",
+    "city": "Paris",
+    "country": "FR"
+  },
+  {
+    "code": "CGB",
+    "name": "Marechal Rondon International Airport",
+    "city": "Cuiabá",
+    "country": "BR"
+  },
+  {
+    "code": "CGK",
+    "name": "Soekarno–Hatta International Airport",
+    "city": "Jakarta",
+    "country": "ID"
+  },
+  {
+    "code": "CLE",
+    "name": "Cleveland Hopkins International Airport",
+    "city": "Cleveland",
+    "country": "US"
+  },
+  {
+    "code": "CLT",
+    "name": "Charlotte Douglas International Airport",
+    "city": "Charlotte",
+    "country": "US"
+  },
+  {
+    "code": "CMH",
+    "name": "John Glenn Columbus International Airport",
+    "city": "Columbus",
+    "country": "US"
+  },
+  {
+    "code": "CPH",
+    "name": "Copenhagen Airport",
+    "city": "Copenhagen",
+    "country": "DK"
+  },
+  {
+    "code": "CUN",
+    "name": "Cancún International Airport",
+    "city": "Cancún",
+    "country": "MX"
+  },
+  {
+    "code": "CVG",
+    "name": "Cincinnati/Northern Kentucky International Airport",
+    "city": "Cincinnati",
+    "country": "US"
+  },
+  {
+    "code": "CWB",
+    "name": "Afonso Pena International Airport",
+    "city": "Curitiba",
+    "country": "BR"
+  },
+  {
+    "code": "DAL",
+    "name": "Dallas Love Field",
+    "city": "Dallas",
+    "country": "US"
+  },
+  {
+    "code": "DCA",
+    "name": "Ronald Reagan Washington National Airport",
+    "city": "Washington",
+    "country": "US"
+  },
+  {
+    "code": "DEN",
+    "name": "Denver International Airport",
+    "city": "Denver",
+    "country": "US"
+  },
+  {
+    "code": "DFW",
+    "name": "Dallas/Fort Worth International Airport",
+    "city": "Dallas",
+    "country": "US"
+  },
+  {
+    "code": "DOH",
+    "name": "Hamad International Airport",
+    "city": "Doha",
+    "country": "QA"
+  },
+  {
+    "code": "DTW",
+    "name": "Detroit Metropolitan Airport",
+    "city": "Detroit",
+    "country": "US"
+  },
+  {
+    "code": "DUB",
+    "name": "Dublin Airport",
+    "city": "Dublin",
+    "country": "IE"
+  },
+  {
+    "code": "DXB",
+    "name": "Dubai International Airport",
+    "city": "Dubai",
+    "country": "AE"
+  },
+  {
+    "code": "EWR",
+    "name": "Newark Liberty International Airport",
+    "city": "Newark",
+    "country": "US"
+  },
+  {
+    "code": "EZE",
+    "name": "Ministro Pistarini International Airport",
+    "city": "Buenos Aires",
+    "country": "AR"
+  },
+  {
+    "code": "FCO",
+    "name": "Leonardo da Vinci–Fiumicino Airport",
+    "city": "Rome",
+    "country": "IT"
+  },
+  {
+    "code": "FLL",
+    "name": "Fort Lauderdale-Hollywood International Airport",
+    "city": "Fort Lauderdale",
+    "country": "US"
+  },
+  {
+    "code": "FLN",
+    "name": "Hercílio Luz International Airport",
+    "city": "Florianópolis",
+    "country": "BR"
+  },
+  {
+    "code": "FOR",
+    "name": "Pinto Martins – Fortaleza International Airport",
+    "city": "Fortaleza",
+    "country": "BR"
+  },
+  {
+    "code": "FRA",
+    "name": "Frankfurt Airport",
+    "city": "Frankfurt",
+    "country": "DE"
+  },
+  {
+    "code": "GDL",
+    "name": "Guadalajara International Airport",
+    "city": "Guadalajara",
+    "country": "MX"
+  },
+  {
+    "code": "GIG",
+    "name": "Rio de Janeiro/Galeão International Airport",
+    "city": "Rio de Janeiro",
+    "country": "BR"
+  },
+  {
+    "code": "GRU",
+    "name": "São Paulo/Guarulhos International Airport",
+    "city": "São Paulo",
+    "country": "BR"
+  },
+  {
+    "code": "GUA",
+    "name": "La Aurora International Airport",
+    "city": "Guatemala City",
+    "country": "GT"
+  },
+  {
+    "code": "GYE",
+    "name": "José Joaquín de Olmedo International Airport",
+    "city": "Guayaquil",
+    "country": "EC"
+  },
+  {
+    "code": "GYN",
+    "name": "Santa Genoveva Airport",
+    "city": "Goiânia",
+    "country": "BR"
+  },
+  {
+    "code": "HEL",
+    "name": "Helsinki Airport",
+    "city": "Helsinki",
+    "country": "FI"
+  },
+  {
+    "code": "HKG",
+    "name": "Hong Kong International Airport",
+    "city": "Hong Kong",
+    "country": "HK"
+  },
+  {
+    "code": "HND",
+    "name": "Haneda Airport",
+    "city": "Tokyo",
+    "country": "JP"
+  },
+  {
+    "code": "HNL",
+    "name": "Daniel K. Inouye International Airport",
+    "city": "Honolulu",
+    "country": "US"
+  },
+  {
+    "code": "IAD",
+    "name": "Washington Dulles International Airport",
+    "city": "Washington",
+    "country": "US"
+  },
+  {
+    "code": "IAH",
+    "name": "George Bush Intercontinental Airport",
+    "city": "Houston",
+    "country": "US"
+  },
+  {
+    "code": "ICN",
+    "name": "Incheon International Airport",
+    "city": "Seoul",
+    "country": "KR"
+  },
+  {
+    "code": "IND",
+    "name": "Indianapolis International Airport",
+    "city": "Indianapolis",
+    "country": "US"
+  },
+  {
+    "code": "IST",
+    "name": "Istanbul Airport",
+    "city": "Istanbul",
+    "country": "TR"
+  },
+  {
+    "code": "JFK",
+    "name": "John F. Kennedy International Airport",
+    "city": "New York",
+    "country": "US"
+  },
+  {
+    "code": "KIX",
+    "name": "Kansai International Airport",
+    "city": "Osaka",
+    "country": "JP"
+  },
+  {
+    "code": "KOA",
+    "name": "Ellison Onizuka Kona International Airport",
+    "city": "Kailua-Kona",
+    "country": "US"
+  },
+  {
+    "code": "KUL",
+    "name": "Kuala Lumpur International Airport",
+    "city": "Kuala Lumpur",
+    "country": "MY"
+  },
+  {
+    "code": "LAS",
+    "name": "Harry Reid International Airport",
+    "city": "Las Vegas",
+    "country": "US"
+  },
+  {
+    "code": "LAX",
+    "name": "Los Angeles International Airport",
+    "city": "Los Angeles",
+    "country": "US"
+  },
+  {
+    "code": "LGA",
+    "name": "LaGuardia Airport",
+    "city": "New York",
+    "country": "US"
+  },
+  {
+    "code": "LGW",
+    "name": "London Gatwick Airport",
+    "city": "London",
+    "country": "GB"
+  },
+  {
+    "code": "LHR",
+    "name": "Heathrow Airport",
+    "city": "London",
+    "country": "GB"
+  },
+  {
+    "code": "LIM",
+    "name": "Jorge Chávez International Airport",
+    "city": "Lima",
+    "country": "PE"
+  },
+  {
+    "code": "LIR",
+    "name": "Daniel Oduber Quirós International Airport",
+    "city": "Liberia",
+    "country": "CR"
+  },
+  {
+    "code": "MAD",
+    "name": "Adolfo Suárez Madrid–Barajas Airport",
+    "city": "Madrid",
+    "country": "ES"
+  },
+  {
+    "code": "MAO",
+    "name": "Eduardo Gomes International Airport",
+    "city": "Manaus",
+    "country": "BR"
+  },
+  {
+    "code": "MCI",
+    "name": "Kansas City International Airport",
+    "city": "Kansas City",
+    "country": "US"
+  },
+  {
+    "code": "MCO",
+    "name": "Orlando International Airport",
+    "city": "Orlando",
+    "country": "US"
+  },
+  {
+    "code": "MDW",
+    "name": "Chicago Midway International Airport",
+    "city": "Chicago",
+    "country": "US"
+  },
+  {
+    "code": "MEL",
+    "name": "Melbourne Airport",
+    "city": "Melbourne",
+    "country": "AU"
+  },
+  {
+    "code": "MEX",
+    "name": "Mexico City International Airport",
+    "city": "Mexico City",
+    "country": "MX"
+  },
+  {
+    "code": "MGA",
+    "name": "Augusto C. Sandino International Airport",
+    "city": "Managua",
+    "country": "NI"
+  },
+  {
+    "code": "MIA",
+    "name": "Miami International Airport",
+    "city": "Miami",
+    "country": "US"
+  },
+  {
+    "code": "MNL",
+    "name": "Ninoy Aquino International Airport",
+    "city": "Manila",
+    "country": "PH"
+  },
+  {
+    "code": "MSP",
+    "name": "Minneapolis-Saint Paul International Airport",
+    "city": "Minneapolis",
+    "country": "US"
+  },
+  {
+    "code": "MSY",
+    "name": "Louis Armstrong New Orleans International Airport",
+    "city": "New Orleans",
+    "country": "US"
+  },
+  {
+    "code": "MUC",
+    "name": "Munich Airport",
+    "city": "Munich",
+    "country": "DE"
+  },
+  {
+    "code": "MXP",
+    "name": "Milan Malpensa Airport",
+    "city": "Milan",
+    "country": "IT"
+  },
+  {
+    "code": "NAT",
+    "name": "São Gonçalo do Amarante–Governador Aluízio Alves International Airport",
+    "city": "Natal",
+    "country": "BR"
+  },
+  {
+    "code": "NRT",
+    "name": "Narita International Airport",
+    "city": "Tokyo",
+    "country": "JP"
+  },
+  {
+    "code": "OAK",
+    "name": "Oakland International Airport",
+    "city": "Oakland",
+    "country": "US"
+  },
+  {
+    "code": "OGG",
+    "name": "Kahului Airport",
+    "city": "Kahului",
+    "country": "US"
+  },
+  {
+    "code": "ORD",
+    "name": "O'Hare International Airport",
+    "city": "Chicago",
+    "country": "US"
+  },
+  {
+    "code": "ORY",
+    "name": "Paris Orly Airport",
+    "city": "Paris",
+    "country": "FR"
+  },
+  {
+    "code": "OSL",
+    "name": "Oslo Airport, Gardermoen",
+    "city": "Oslo",
+    "country": "NO"
+  },
+  {
+    "code": "PDX",
+    "name": "Portland International Airport",
+    "city": "Portland",
+    "country": "US"
+  },
+  {
+    "code": "PEK",
+    "name": "Beijing Capital International Airport",
+    "city": "Beijing",
+    "country": "CN"
+  },
+  {
+    "code": "PER",
+    "name": "Perth Airport",
+    "city": "Perth",
+    "country": "AU"
+  },
+  {
+    "code": "PHL",
+    "name": "Philadelphia International Airport",
+    "city": "Philadelphia",
+    "country": "US"
+  },
+  {
+    "code": "PHX",
+    "name": "Phoenix Sky Harbor International Airport",
+    "city": "Phoenix",
+    "country": "US"
+  },
+  {
+    "code": "PIT",
+    "name": "Pittsburgh International Airport",
+    "city": "Pittsburgh",
+    "country": "US"
+  },
+  {
+    "code": "PRG",
+    "name": "Václav Havel Airport Prague",
+    "city": "Prague",
+    "country": "CZ"
+  },
+  {
+    "code": "PTY",
+    "name": "Tocumen International Airport",
+    "city": "Panama City",
+    "country": "PA"
+  },
+  {
+    "code": "PVG",
+    "name": "Shanghai Pudong International Airport",
+    "city": "Shanghai",
+    "country": "CN"
+  },
+  {
+    "code": "RDU",
+    "name": "Raleigh-Durham International Airport",
+    "city": "Raleigh",
+    "country": "US"
+  },
+  {
+    "code": "REC",
+    "name": "Recife/Guararapes–Gilberto Freyre International Airport",
+    "city": "Recife",
+    "country": "BR"
+  },
+  {
+    "code": "SAL",
+    "name": "El Salvador International Airport",
+    "city": "San Salvador",
+    "country": "SV"
+  },
+  {
+    "code": "SAN",
+    "name": "San Diego International Airport",
+    "city": "San Diego",
+    "country": "US"
+  },
+  {
+    "code": "SAP",
+    "name": "Ramón Villeda Morales International Airport",
+    "city": "San Pedro Sula",
+    "country": "HN"
+  },
+  {
+    "code": "SAT",
+    "name": "San Antonio International Airport",
+    "city": "San Antonio",
+    "country": "US"
+  },
+  {
+    "code": "SCL",
+    "name": "Arturo Merino Benítez International Airport",
+    "city": "Santiago",
+    "country": "CL"
+  },
+  {
+    "code": "SEA",
+    "name": "Seattle-Tacoma International Airport",
+    "city": "Seattle",
+    "country": "US"
+  },
+  {
+    "code": "SFO",
+    "name": "San Francisco International Airport",
+    "city": "San Francisco",
+    "country": "US"
+  },
+  {
+    "code": "SIN",
+    "name": "Singapore Changi Airport",
+    "city": "Singapore",
+    "country": "SG"
+  },
+  {
+    "code": "SJC",
+    "name": "Norman Y. Mineta San Jose International Airport",
+    "city": "San Jose",
+    "country": "US"
+  },
+  {
+    "code": "SJO",
+    "name": "Juan Santamaría International Airport",
+    "city": "San José",
+    "country": "CR"
+  },
+  {
+    "code": "SJU",
+    "name": "Luis Muñoz Marín International Airport",
+    "city": "San Juan",
+    "country": "PR"
+  },
+  {
+    "code": "SLC",
+    "name": "Salt Lake City International Airport",
+    "city": "Salt Lake City",
+    "country": "US"
+  },
+  {
+    "code": "SMF",
+    "name": "Sacramento International Airport",
+    "city": "Sacramento",
+    "country": "US"
+  },
+  {
+    "code": "SNA",
+    "name": "John Wayne Airport",
+    "city": "Santa Ana",
+    "country": "US"
+  },
+  {
+    "code": "SSA",
+    "name": "Salvador International Airport",
+    "city": "Salvador",
+    "country": "BR"
+  },
+  {
+    "code": "STL",
+    "name": "St. Louis Lambert International Airport",
+    "city": "St. Louis",
+    "country": "US"
+  },
+  {
+    "code": "STN",
+    "name": "London Stansted Airport",
+    "city": "London",
+    "country": "GB"
+  },
+  {
+    "code": "SVO",
+    "name": "Sheremetyevo International Airport",
+    "city": "Moscow",
+    "country": "RU"
+  },
+  {
+    "code": "SYD",
+    "name": "Sydney Kingsford Smith Airport",
+    "city": "Sydney",
+    "country": "AU"
+  },
+  {
+    "code": "TPA",
+    "name": "Tampa International Airport",
+    "city": "Tampa",
+    "country": "US"
+  },
+  {
+    "code": "TUS",
+    "name": "Tucson International Airport",
+    "city": "Tucson",
+    "country": "US"
+  },
+  {
+    "code": "UIO",
+    "name": "Mariscal Sucre International Airport",
+    "city": "Quito",
+    "country": "EC"
+  },
+  {
+    "code": "VIE",
+    "name": "Vienna International Airport",
+    "city": "Vienna",
+    "country": "AT"
+  },
+  {
+    "code": "VIX",
+    "name": "Eurico de Aguiar Salles Airport",
+    "city": "Vitória",
+    "country": "BR"
+  },
+  {
+    "code": "WAW",
+    "name": "Warsaw Chopin Airport",
+    "city": "Warsaw",
+    "country": "PL"
+  },
+  {
+    "code": "YVR",
+    "name": "Vancouver International Airport",
+    "city": "Vancouver",
+    "country": "CA"
+  },
+  {
+    "code": "YYZ",
+    "name": "Toronto Pearson International Airport",
+    "city": "Toronto",
+    "country": "CA"
+  },
+  {
+    "code": "ZRH",
+    "name": "Zurich Airport",
+    "city": "Zurich",
+    "country": "CH"
+  }
+]

@@ -1,0 +1,34 @@
+{
+  "metro_codes": {
+    "NYC": "JFK",
+    "CHI": "ORD",
+    "LON": "LHR",
+    "TYO": "HND",
+    "OSA": "KIX",
+    "PAR": "CDG",
+    "ROM": "FCO",
+    "MIL": "MXP",
+    "WAS": "IAD",
+    "BUE": "EZE",
+    "SEL": "ICN",
+    "MOW": "SVO"
+  },
+  "city_codes": {
+    "LONDON": "LHR",
+    "NEW YORK": "JFK",
+    "TOKYO": "HND",
+    "PARIS": "CDG",
+    "ROME": "FCO",
+    "CHICAGO": "ORD",
+    "WASHINGTON": "IAD",
+    "DALLAS": "DFW",
+    "PANAMA": "PTY",
+    "SAO PAULO": "GRU",
+    "RIO": "GIG",
+    "BUENOS AIRES": "EZE",
+    "SEOUL": "ICN",
+    "MILAN": "MXP",
+    "OSAKA": "KIX",
+    "MOSCOW": "SVO"
+  }
+}
