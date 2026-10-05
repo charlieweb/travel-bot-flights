@@ -1,4 +1,5 @@
 import os
+import time
 import httpx
 from middleware.error_handlers import (
     APIKeyNotConfiguredException,
@@ -21,11 +22,16 @@ class AirLabsService:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.client = httpx.AsyncClient(timeout=30.0)
+        self._cache: list[dict] | None = None
+        self._cache_at: float = 0.0
 
     async def close(self) -> None:
         await self.client.aclose()
 
     async def _fetch_airports(self) -> list[dict]:
+        # Cache the full list for 6 hours; it changes rarely
+        if self._cache is not None and (time.time() - self._cache_at) < 6 * 3600:
+            return self._cache
         try:
             response = await self.client.get(
                 f"{AIRLABS_API_URL}/airports",
@@ -33,9 +39,20 @@ class AirLabsService:
             )
             response.raise_for_status()
             data = response.json()
-            return data.get("response") or []
+            airports = data.get("response") or []
+            self._cache = airports
+            self._cache_at = time.time()
+            return airports
         except httpx.HTTPError as e:
             raise ExternalAPIException(detail=f"Error fetching airports: {str(e)}")
+
+    async def get_by_code(self, code: str) -> Airport | None:
+        """Exact IATA code lookup."""
+        wanted = code.strip().upper()
+        for airport in await self._fetch_airports():
+            if (airport.get("iata_code") or "").upper() == wanted:
+                return self._map_to_airport(airport)
+        return None
 
     def _map_to_airport(self, raw: dict) -> Airport:
         return Airport(

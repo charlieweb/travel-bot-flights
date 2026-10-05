@@ -8,3 +8,26 @@ export function formatUsdPrice(price: number): string {
     maximumFractionDigits: hasCents ? 2 : 0,
   }).format(price)
 }
+
+/** Readable date like "Thu, Dec 10, 2026". */
+export function formatDate(iso: string): string {
+  const d = new Date(iso.includes('T') ? iso : `${iso}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/** Country code (e.g. "GB") → readable name ("United Kingdom"). Falls back to the code. */
+const regions = new Intl.DisplayNames(['en'], { type: 'region' })
+export function formatCountry(isoCode: string): string {
+  if (!isoCode) return ''
+  try {
+    return regions.of(isoCode) || isoCode
+  } catch {
+    return isoCode
+  }
+}

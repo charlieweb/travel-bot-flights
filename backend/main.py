@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from routers.travel import router as travel_router
 from routers.airports import router as airports_router
+from routers.search import router as search_router
 from middleware.error_handlers import register_exception_handlers
 
 load_dotenv()
@@ -38,6 +39,7 @@ app.add_middleware(
 
 app.include_router(travel_router)
 app.include_router(airports_router)
+app.include_router(search_router)
 
 
 @app.get("/health")

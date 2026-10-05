@@ -8,6 +8,7 @@
 
       <main>
         <TravelSearchForm />
+        <SearchSkeleton v-if="(store.parsing || store.loading) && !store.results.length" />
         <TravelResults />
         <ErrorMessage />
       </main>
@@ -16,4 +17,5 @@
 </template>
 
 <script setup lang="ts">
+const store = useTravelStore()
 </script>

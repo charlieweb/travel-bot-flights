@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { TravelOption, SearchState } from '~/lib'
+import type { Airport, TravelOption, SearchState, ParsedSearch } from '~/lib'
 
 function sortOptions(options: TravelOption[]): TravelOption[] {
   return [...options].sort((a, b) => {
@@ -11,10 +11,14 @@ function sortOptions(options: TravelOption[]): TravelOption[] {
 
 export const useTravelStore = defineStore('travel', {
   state: (): SearchState => ({
+    query: '',
     origin: '',
     destination: '',
+    originAirport: null,
+    destinationAirport: null,
     departDate: '',
     returnDate: '',
+    parsing: false,
     results: [],
     loading: false,
     error: '',
@@ -47,6 +51,53 @@ export const useTravelStore = defineStore('travel', {
         byId.set(mergeKey(option), option)
       }
       this.results = sortOptions(Array.from(byId.values()))
+    },
+    async fetchAirportInfo(code: string): Promise<Airport | null> {
+      try {
+        const results = await $fetch<Airport[]>('/api/airports', {
+          query: { query: code },
+          timeout: 10_000,
+        })
+        return results.find((a) => a.code === code) || results[0] || null
+      } catch {
+        return null
+      }
+    },
+    async parseAndSearch(query: string) {
+      const trimmed = query.trim()
+      if (!trimmed) return
+      this.query = trimmed
+      this.parsing = true
+      this.error = ''
+      try {
+        const parsed = await $fetch<ParsedSearch>('/api/parse_search', {
+          method: 'POST',
+          body: { query: trimmed },
+          timeout: 30_000,
+        })
+        if (parsed.missing_fields.length) {
+          this.error =
+            "Couldn't understand your search — try something like " +
+            '"London to Tokyo, Dec 10 to Dec 20"'
+          return
+        }
+        this.origin = parsed.origin || ''
+        this.destination = parsed.destination || ''
+        this.departDate = parsed.depart_date || ''
+        this.returnDate = parsed.return_date || ''
+        const [originAirport, destinationAirport] = await Promise.all([
+          this.origin ? this.fetchAirportInfo(this.origin) : null,
+          this.destination ? this.fetchAirportInfo(this.destination) : null,
+        ])
+        this.originAirport = originAirport
+        this.destinationAirport = destinationAirport
+        await this.search()
+      } catch (err) {
+        this.error =
+          err instanceof Error ? err.message : 'Failed to parse search'
+      } finally {
+        this.parsing = false
+      }
     },
     async search() {
       this.loading = true

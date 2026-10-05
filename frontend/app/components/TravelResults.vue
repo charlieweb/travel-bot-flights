@@ -92,7 +92,7 @@
 
 <script setup lang="ts">
 import { useTravelStore } from '~/stores/travel'
-import { formatUsdPrice } from '~/lib'
+import { formatUsdPrice, formatDate } from '~/lib'
 
 const store = useTravelStore()
 const getBookingUrl = (sourceUrl: string): string => sourceUrl || ''
@@ -100,16 +100,5 @@ const getBookingUrl = (sourceUrl: string): string => sourceUrl || ''
 function stopsLabel(stops: number): string {
   if (stops === 0) return 'Nonstop'
   return `${stops} stop${stops > 1 ? 's' : ''}`
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso.includes('T') ? iso : `${iso}T12:00:00`)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 </script>
