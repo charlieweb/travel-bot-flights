@@ -45,6 +45,7 @@ def _airport_priority(airport: Airport) -> tuple[int, int, str]:
 
 @lru_cache(maxsize=1)
 def _load_aliases() -> tuple[dict[str, str], dict[str, str]]:
+    """Load metro + preferred-city maps used only to normalize against local airports."""
     with _ALIASES_PATH.open(encoding="utf-8") as f:
         data = json.load(f)
     metro = {
@@ -102,7 +103,6 @@ def _load_airports() -> tuple[
         best = sorted(candidates, key=_airport_priority)[0]
         city_to_code[city_key] = best.code
 
-    # Extra spellings / short names from aliases (e.g. PANAMA → PTY).
     for alias, code in preferred.items():
         if code in by_code:
             city_to_code.setdefault(alias, code)
@@ -129,7 +129,7 @@ class AirportService:
         return metro.get(wanted, wanted)
 
     def resolve_city_code(self, city: str) -> str | None:
-        """Resolve a city name to a primary IATA using all airports + overrides."""
+        """Resolve an exact city name to a primary IATA in airports.json."""
         key = _fold_key(city)
         if not key:
             return None

@@ -21,14 +21,6 @@
     "ROME": "FCO",
     "CHICAGO": "ORD",
     "WASHINGTON": "IAD",
-    "DALLAS": "DFW",
-    "PANAMA": "PTY",
-    "SAO PAULO": "GRU",
-    "RIO": "GIG",
-    "BUENOS AIRES": "EZE",
-    "SEOUL": "ICN",
-    "MILAN": "MXP",
-    "OSAKA": "KIX",
-    "MOSCOW": "SVO"
+    "DALLAS": "DFW"
   }
 }

@@ -16,8 +16,11 @@ Return JSON only (no markdown):
 {{"origin": {{"code": "3-letter IATA airport code or null", "city": "full city name"}}, "destination": {{"code": "...", "city": "..."}}, "depart_date": "YYYY-MM-DD", "return_date": "YYYY-MM-DD or null"}}
 
 Rules:
-- code: the primary passenger airport (JFK not NYC, LHR not LON, HND not TYO, ORD not CHI). Unsure? null.
-- city: full spelled-out city name (e.g. "New York", not abbreviations).
+- YOU must expand vague places to the most likely major passenger city + primary airport. Do not leave countries, regions, abbreviations, or partial names unresolved.
+- Countries / regions → main hub city (UK/England/Britain → London/LHR, Japan → Tokyo/HND, France → Paris/CDG, USA alone → New York/JFK, Brazil → Sao Paulo/GRU).
+- Partial names and typos → best city guess (miam → Miami/MIA, nyc → New York/JFK, la → Los Angeles/LAX, sf → San Francisco/SFO).
+- code: concrete primary passenger airport IATA only (JFK not NYC, LHR not LON, HND not TYO, ORD not CHI). Prefer a best guess over null when the place is recognizable.
+- city: full spelled-out city name (never a country code, region, or abbreviation).
 - depart_date: nearest future occurrence; null if not mentioned.
 - return_date: null for one-way or when not mentioned; never before depart_date.
 
@@ -79,7 +82,7 @@ class SearchParser:
             return {}
 
     def _resolve_airport(self, value: object) -> Optional[str]:
-        """Resolve an LLM {code, city} pair to a local IATA code."""
+        """Validate LLM {code, city} against local airports.json (not semantic expansion)."""
         code = ""
         city = ""
         if isinstance(value, dict):
@@ -93,21 +96,20 @@ class SearchParser:
         if not code and not city:
             return None
 
+        # Normalize metro IATA (NYC→JFK) so the code exists in airports.json.
         code = self.airports.resolve_metro_code(code)
 
-        # 1) Exact code against local airports.json
         if code:
             airport = self.airports.get_by_code(code)
             if airport and airport.code:
                 return airport.code.upper()
 
-        # 2) City → primary IATA for every city in airports.json (+ alias overrides)
+        # Exact city match in local DB (LLM should already have expanded UK/miam/etc.).
         if city:
             resolved = self.airports.resolve_city_code(city)
             if resolved:
                 return resolved
 
-        # 3) Fuzzy city/name search fallback
         if city:
             results = self.airports.search_airports(query=city, limit=25)
             with_code = [a for a in results if a.code]
