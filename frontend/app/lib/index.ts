@@ -6,6 +6,7 @@ export type {
   SearchRequest,
   SearchState,
   ParsedSearch,
+  CityPrompt,
 } from './types'
 
 export { formatUsdPrice, formatDate, formatCountry } from './format'
