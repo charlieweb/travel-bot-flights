@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { Airport, TravelOption, SearchState, ParsedSearch } from '~/lib'
+import type { Airport, TravelOption, SearchState, ParsedSearch, CityPrompt } from '~/lib'
 
 function sortOptions(options: TravelOption[]): TravelOption[] {
   return [...options].sort((a, b) => {
@@ -7,6 +7,20 @@ function sortOptions(options: TravelOption[]): TravelOption[] {
     const pb = b.price > 0 ? b.price : 99999
     return pa - pb
   })
+}
+
+function hasBothCities(query: string): boolean {
+  return /\bto\b/i.test(query)
+}
+
+function cityPromptFor(
+  parsed: ParsedSearch,
+  missingOrigin: boolean,
+  missingDestination: boolean,
+): CityPrompt {
+  if (missingOrigin && missingDestination) return { known: '', missing: 'both' }
+  if (missingDestination) return { known: parsed.origin || '', missing: 'destination' }
+  return { known: parsed.destination || '', missing: 'origin' }
 }
 
 export const useTravelStore = defineStore('travel', {
@@ -22,6 +36,7 @@ export const useTravelStore = defineStore('travel', {
     results: [],
     loading: false,
     error: '',
+    cityPrompt: null,
   }),
   actions: {
     setSearch(data: { origin: string; destination: string; departDate: string; returnDate: string }) {
@@ -63,19 +78,30 @@ export const useTravelStore = defineStore('travel', {
         return null
       }
     },
+    dismissCityPrompt() {
+      this.cityPrompt = null
+    },
     async parseAndSearch(query: string) {
       const trimmed = query.trim()
       if (!trimmed) return
       this.query = trimmed
       this.parsing = true
       this.error = ''
+      this.cityPrompt = null
       try {
         const parsed = await $fetch<ParsedSearch>('/api/parse_search', {
           method: 'POST',
           body: { query: trimmed },
           timeout: 30_000,
         })
-        if (parsed.missing_fields.length) {
+        const missing = new Set(parsed.missing_fields ?? [])
+        const missingOrigin = missing.has('origin') || !parsed.origin
+        const missingDestination = missing.has('destination') || !parsed.destination
+        if (missingOrigin || missingDestination) {
+          this.cityPrompt = cityPromptFor(parsed, missingOrigin, missingDestination)
+          return
+        }
+        if (missing.size) {
           this.error =
             "Couldn't understand your search — try something like " +
             '"London to Tokyo, Dec 10 to Dec 20"'
@@ -93,13 +119,28 @@ export const useTravelStore = defineStore('travel', {
         this.destinationAirport = destinationAirport
         await this.search()
       } catch (err) {
-        this.error =
-          err instanceof Error ? err.message : 'Failed to parse search'
+        if (!hasBothCities(trimmed)) {
+          this.cityPrompt = { known: '', missing: 'both' }
+          return
+        }
+        this.error = err instanceof Error ? err.message : 'Failed to parse search'
       } finally {
         this.parsing = false
       }
     },
     async search() {
+      if (!this.origin || !this.destination) {
+        this.cityPrompt = {
+          known: this.origin || this.destination,
+          missing: !this.origin && !this.destination
+            ? 'both'
+            : !this.origin
+              ? 'origin'
+              : 'destination',
+        }
+        this.loading = false
+        return
+      }
       this.loading = true
       this.error = ''
       this.results = []

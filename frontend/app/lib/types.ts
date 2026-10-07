@@ -35,6 +35,11 @@ export interface SearchRequest {
   return_date: string
 }
 
+export interface CityPrompt {
+  known: string
+  missing: 'origin' | 'destination' | 'both'
+}
+
 export interface SearchState {
   query: string
   origin: string
@@ -47,6 +52,7 @@ export interface SearchState {
   results: TravelOption[]
   loading: boolean
   error: string
+  cityPrompt: CityPrompt | null
 }
 
 export interface ParsedSearch {

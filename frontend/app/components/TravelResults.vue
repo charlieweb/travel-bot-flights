@@ -1,51 +1,77 @@
 <template>
-  <div v-if="store.results.length" class="mt-8 space-y-4">
-    <div class="flex items-center justify-between">
+  <div
+    v-if="store.results.length"
+    class="mt-8 space-y-4"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <h2 class="text-2xl font-bold">Available Flights</h2>
-      <span class="badge badge-lg">{{ store.results.length }} results</span>
+      <div class="flex items-center gap-2">
+        <span class="badge badge-lg">{{ visibleResults.length }} of {{ store.results.length }}</span>
+        <button
+          v-if="remaining > 0"
+          type="button"
+          class="btn btn-primary btn-sm"
+          @click="loadMore"
+        >
+          Load more ({{ nextBatchSize }})
+        </button>
+      </div>
     </div>
 
-    <div class="space-y-4">
+    <div ref="listEl" class="space-y-4">
       <div
-        v-for="option in store.results"
+        v-for="option in visibleResults"
         :key="`${option.source_type}-${option.id}`"
+        data-flight-card
         class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow"
       >
         <div class="card-body">
-<div class="flex justify-between items-start">
-          <div>
-            <div class="flex items-center gap-2">
-              <h3 class="text-xl font-bold">{{ option.airline }}</h3>
-              <span v-if="option.source_type" class="badge badge-sm" :class="{
-                'badge-primary': option.source_type === 'airline',
-                'badge-secondary': option.source_type === 'aggregator',
-                'badge-neutral': option.source_type === 'search'
-              }">
-                {{ option.source_type === 'airline' ? 'Airline' : option.source_type === 'aggregator' ? 'Aggregator' : 'Search' }}
-              </span>
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-xl font-bold">{{ option.airline }}</h3>
+                <span
+                  v-if="option.source_type"
+                  class="badge badge-sm"
+                  :class="{
+                    'badge-primary': option.source_type === 'airline',
+                    'badge-secondary': option.source_type === 'aggregator',
+                    'badge-neutral': option.source_type === 'search',
+                  }"
+                >
+                  {{
+                    option.source_type === 'airline'
+                      ? 'Airline'
+                      : option.source_type === 'aggregator'
+                        ? 'Aggregator'
+                        : 'Search'
+                  }}
+                </span>
+              </div>
+              <p class="text-sm text-base-content/60 mt-1">
+                <span>{{ stopsLabel(option.stops) }}</span>
+                <span v-if="option.duration"> · {{ option.duration }}</span>
+              </p>
+              <p
+                v-if="option.depart_date || option.return_date"
+                class="text-sm text-base-content/70 mt-1"
+              >
+                <span v-if="option.depart_date">Depart {{ formatDate(option.depart_date) }}</span>
+                <span v-if="option.depart_date && option.return_date"> · </span>
+                <span v-if="option.return_date">Return {{ formatDate(option.return_date) }}</span>
+                <span
+                  v-if="option.return_date"
+                  class="badge badge-outline badge-xs ml-2 align-middle"
+                >Round trip</span>
+              </p>
             </div>
-            <p class="text-sm text-base-content/60 mt-1">
-              <span>{{ stopsLabel(option.stops) }}</span>
-              <span v-if="option.duration"> · {{ option.duration }}</span>
-            </p>
-            <p
-              v-if="option.depart_date || option.return_date"
-              class="text-sm text-base-content/70 mt-1"
-            >
-              <span v-if="option.depart_date">Depart {{ formatDate(option.depart_date) }}</span>
-              <span v-if="option.depart_date && option.return_date"> · </span>
-              <span v-if="option.return_date">Return {{ formatDate(option.return_date) }}</span>
-              <span
-                v-if="option.return_date"
-                class="badge badge-outline badge-xs ml-2 align-middle"
-              >Round trip</span>
-            </p>
+            <div class="text-right">
+              <p v-if="option.price > 0.01" class="text-3xl font-bold text-primary">
+                {{ formatUsdPrice(option.price) }}
+              </p>
+              <p v-else class="text-sm text-base-content/60">Price unavailable</p>
+            </div>
           </div>
-          <div class="text-right">
-            <p v-if="option.price > 0.01" class="text-3xl font-bold text-primary">{{ formatUsdPrice(option.price) }}</p>
-            <p v-else class="text-sm text-base-content/60">Price unavailable</p>
-          </div>
-        </div>
 
           <div class="flex items-center justify-between mt-6 pt-4 border-t border-base-200">
             <div class="text-center">
@@ -94,7 +120,31 @@
 import { useTravelStore } from '~/stores/travel'
 import { formatUsdPrice, formatDate } from '~/lib'
 
+const PAGE_SIZE = 10
+
 const store = useTravelStore()
+const listEl = useTemplateRef<HTMLElement>('listEl')
+const visibleCount = shallowRef(PAGE_SIZE)
+
+const visibleResults = computed(() => store.results.slice(0, visibleCount.value))
+const remaining = computed(() => Math.max(store.results.length - visibleCount.value, 0))
+const nextBatchSize = computed(() => Math.min(PAGE_SIZE, remaining.value))
+
+watch(
+  () => store.results.length,
+  (count) => {
+    if (count === 0) visibleCount.value = PAGE_SIZE
+  },
+)
+
+async function loadMore() {
+  const firstNewIndex = visibleCount.value
+  visibleCount.value = Math.min(store.results.length, visibleCount.value + PAGE_SIZE)
+  await nextTick()
+  const card = listEl.value?.querySelectorAll<HTMLElement>('[data-flight-card]')[firstNewIndex]
+  card?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 const getBookingUrl = (sourceUrl: string): string => sourceUrl || ''
 
 function stopsLabel(stops: number): string {
@@ -102,3 +152,4 @@ function stopsLabel(stops: number): string {
   return `${stops} stop${stops > 1 ? 's' : ''}`
 }
 </script>
+
